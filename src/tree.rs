@@ -238,8 +238,28 @@ impl<Id: Hash + Clone + Eq> Tree<Id> {
         self.consider_split(new_node_id);
     }
 
-    /// Returns the NodeId and byte index of a character Id, if it exists
-    pub fn lookup_character(&self, lookup_id: Id) -> Option<(NodeId, usize)> {
+    /// Returns the NodeId and byte index of a character Id
+    fn lookup_character(&self, lookup_id: Id) -> (NodeId, usize) {
+        /// Returns the byte index of `lookup_id` in the sequence node `node`. If the character was
+        /// tombstoned, it returns the byte of the next character that isn't tombstoned. If there is no
+        /// following character that isn't tombstoned, the length of the string in `node` is returned.
+        fn lookup_character_in_id_vec<Id: Eq>(ids: &[(Id, Option<usize>)], contents: &str, lookup_id: Id) -> usize {
+            let mut already_hit_id = false;
+            for (id, index) in ids {
+                if *id == lookup_id {
+                    already_hit_id = true;
+                }
+                if already_hit_id {
+                    if let Some(index) = index {
+                        return *index;
+                    }
+                }
+            }
+            if !already_hit_id {
+                panic!("id not found in segment id list");
+            }
+            contents.len()
+        }
         let node_id = self
             .id_to_node
             .get(&lookup_id)
@@ -248,19 +268,14 @@ impl<Id: Hash + Clone + Eq> Tree<Id> {
             .nodes
             .get(&node_id)
             .expect("node_id listed in id_to_node did not exist.");
-        let ids = match &node.data {
-            NodeData::StringSegment { ids, .. } => ids,
+        let (ids, contents) = match &node.data {
+            NodeData::StringSegment { ids, contents, .. } => (ids, contents),
             // if Id is a string, this char corresponds with the first index in the first segment
-            NodeData::String { start, .. } => return Some((*start, 0)),
+            NodeData::String { start, .. } => return (*start, 0),
             _ => panic!("lookup_character called on non-character Id"),
         };
-        let (_, index) = ids
-            .iter()
-            .find(|(id, _)| *id == lookup_id)
-            .expect("segment listed in id_to_node did not contain node");
-        // if the index was deleted, return none
-        let index = (*index)?;
-        Some((*node_id, index))
+
+        (*node_id, lookup_character_in_id_vec(ids, contents, lookup_id))
     }
 
     pub fn insert_character(&mut self, id: Id, character: char) -> Self {
