@@ -6,8 +6,8 @@
 //! overhead for calculating the rope. We opt instead to make indexed access `O(n)` and ID-based
 //! access `O(1)` by using a linked list.
 
+use im::{HashMap, Vector};
 use std::hash::Hash;
-use im::{Vector, HashMap};
 
 const JOIN_LEN: usize = 511;
 const SPLIT_LEN: usize = 1024;
@@ -68,7 +68,7 @@ enum NodeData<Id: Hash + Clone + Eq> {
     },
 }
 
-impl <Id: Hash + Clone + Eq> Tree<Id> {
+impl<Id: Hash + Clone + Eq> Tree<Id> {
     pub fn new() -> Self {
         Tree {
             next_node: 0,
@@ -89,7 +89,7 @@ impl <Id: Hash + Clone + Eq> Tree<Id> {
     fn delete_segment(&mut self, segment: NodeId) -> Node<Id> {
         let segment_data = self.nodes.remove(&segment).expect("segment did not exist");
         let (old_prev, old_next) = match &segment_data.data {
-            NodeData::StringSegment{prev, next, ..} => (*prev, *next),
+            NodeData::StringSegment { prev, next, .. } => (*prev, *next),
             _ => panic!("delete_segment called on non-segment node"),
         };
         if old_prev == old_next {
@@ -97,13 +97,13 @@ impl <Id: Hash + Clone + Eq> Tree<Id> {
             panic!("attempted to delete only segment in list");
         }
         match &mut self.nodes[&old_prev].data {
-            NodeData::StringSegment{next, ..} => *next = old_next,
-            NodeData::String{start, ..} => *start = old_next,
+            NodeData::StringSegment { next, .. } => *next = old_next,
+            NodeData::String { start, .. } => *start = old_next,
             _ => panic!("delete_segment called on non-segment node"),
         }
         match &mut self.nodes[&old_next].data {
-            NodeData::StringSegment{prev, ..} => *prev = old_prev,
-            NodeData::String{end, ..} => *end = old_prev,
+            NodeData::StringSegment { prev, .. } => *prev = old_prev,
+            NodeData::String { end, .. } => *end = old_prev,
             _ => panic!("delete_segment called on non-segment node"),
         }
         segment_data
@@ -113,16 +113,22 @@ impl <Id: Hash + Clone + Eq> Tree<Id> {
     fn insert_segment(&mut self, append_to: NodeId) -> usize {
         let new_id = self.next_id();
         let (parent, prev, next) = match &mut self.nodes[&append_to] {
-            Node{parent, data: NodeData::StringSegment{prev, next, ..}} => {
+            Node {
+                parent,
+                data: NodeData::StringSegment { prev, next, .. },
+            } => {
                 let old_next = *next;
                 *next = new_id;
                 (*parent, append_to, old_next)
-            },
-            Node{parent: _, data: NodeData::String{start, ..}} => {
+            }
+            Node {
+                parent: _,
+                data: NodeData::String { start, .. },
+            } => {
                 let old_start = *start;
                 *start = new_id;
                 (Some(append_to), append_to, old_start)
-            },
+            }
             _ => panic!("insert_segment called on non-segment node"),
         };
         let node = Node {
@@ -132,16 +138,16 @@ impl <Id: Hash + Clone + Eq> Tree<Id> {
                 next,
                 contents: String::new(),
                 ids: Vec::new(),
-            }
+            },
         };
         self.nodes[&new_id] = node;
         match &mut self.nodes[&next].data {
-            NodeData::StringSegment{prev, ..} => {
+            NodeData::StringSegment { prev, .. } => {
                 *prev = new_id;
-            },
-            NodeData::String{end, ..} => {
+            }
+            NodeData::String { end, .. } => {
                 *end = new_id;
-            },
+            }
             _ => panic!("insert_segment called on non-segment node"),
         }
         new_id
@@ -152,32 +158,36 @@ impl <Id: Hash + Clone + Eq> Tree<Id> {
     /// no-op.
     fn consider_join(&mut self, segment: usize) {
         let (segment_len, next) = match &self.nodes[&segment].data {
-            NodeData::StringSegment{contents, next, ..} => (contents.len(), *next),
-            NodeData::String{..} => return, // abort if this is off the edge of a string
+            NodeData::StringSegment { contents, next, .. } => (contents.len(), *next),
+            NodeData::String { .. } => return, // abort if this is off the edge of a string
             _ => panic!("consider_join called on non-segment node"),
         };
         let next_len = match &self.nodes[&next].data {
-            NodeData::StringSegment{contents, ..} => contents.len(),
-            NodeData::String{..} => return, // abort if this is off the edge of a string
+            NodeData::StringSegment { contents, .. } => contents.len(),
+            NodeData::String { .. } => return, // abort if this is off the edge of a string
             _ => panic!("consider_join called on non-segment node"),
         };
-        if segment_len >= JOIN_LEN || next_len >= JOIN_LEN || segment_len+next_len >= SPLIT_LEN {
-            return
+        if segment_len >= JOIN_LEN || next_len >= JOIN_LEN || segment_len + next_len >= SPLIT_LEN {
+            return;
         }
         // delete `next` and merge into this
         let deleted = self.delete_segment(next);
         let (deleted_contents, deleted_ids) = match deleted.data {
-            NodeData::StringSegment{contents, ids, ..} => (contents, ids),
+            NodeData::StringSegment { contents, ids, .. } => (contents, ids),
             _ => panic!("consider_join called on non-segment node"),
         };
         for (id, _) in &deleted_ids {
             self.id_to_node[id] = segment;
         }
         match &mut self.nodes[&segment].data {
-            NodeData::StringSegment{contents, ids, ..} => {
-                ids.extend(deleted_ids.into_iter().map(|(id, byte_opt)| (id, byte_opt.map(|n| n + contents.len()))));
+            NodeData::StringSegment { contents, ids, .. } => {
+                ids.extend(
+                    deleted_ids
+                        .into_iter()
+                        .map(|(id, byte_opt)| (id, byte_opt.map(|n| n + contents.len()))),
+                );
                 contents.push_str(&deleted_contents);
-            },
+            }
             _ => panic!("consider_join called on non-segment node"),
         }
     }
@@ -188,29 +198,37 @@ impl <Id: Hash + Clone + Eq> Tree<Id> {
     // merge
     fn consider_split(&mut self, segment: usize) {
         let (contents, ids) = match &mut self.nodes[&segment].data {
-            NodeData::StringSegment{contents, ids, ..} => (contents, ids),
-            NodeData::String{..} => return, // abort if this is off the edge of a string
+            NodeData::StringSegment { contents, ids, .. } => (contents, ids),
+            NodeData::String { .. } => return, // abort if this is off the edge of a string
             _ => panic!("consider_split called on non-segment node"),
         };
         let len = contents.len();
         if len <= SPLIT_LEN {
-            return
+            return;
         }
         // the first index of the second segment. need to do this stuff to make sure we split
         // along a codepoint boundary
         let (split_start_string, _) = contents.char_indices().find(|(i, _)| *i >= len/2).expect("somehow we failed to find a split point for the string. maybe SPLIT_LEN is really small?");
-        let (split_start_vec, _) = ids.iter().enumerate().find(|(_, (_, byte_i))| *byte_i == Some(split_start_string)).expect("somehow failed to find a split point for ids");
+        let (split_start_vec, _) = ids
+            .iter()
+            .enumerate()
+            .find(|(_, (_, byte_i))| *byte_i == Some(split_start_string))
+            .expect("somehow failed to find a split point for ids");
         let new_string = contents.split_off(split_start_string);
-        let new_ids: Vec<(Id, Option<usize>)> = ids.split_off(split_start_vec).into_iter().map(|(id, n)| (id, n.map(|n| n - split_start_string))).collect();
+        let new_ids: Vec<(Id, Option<usize>)> = ids
+            .split_off(split_start_vec)
+            .into_iter()
+            .map(|(id, n)| (id, n.map(|n| n - split_start_string)))
+            .collect();
         let new_node_id = self.insert_segment(segment);
         for (id, _) in &new_ids {
             self.id_to_node[id] = new_node_id;
         }
         match &mut self.nodes[&new_node_id].data {
-            NodeData::StringSegment{contents, ids, ..} => {
+            NodeData::StringSegment { contents, ids, .. } => {
                 *ids = new_ids;
                 *contents = new_string;
-            },
+            }
             _ => panic!("insert_segment created wrong type of node"),
         }
         self.consider_split(segment);
@@ -219,13 +237,22 @@ impl <Id: Hash + Clone + Eq> Tree<Id> {
 
     /// Returns the NodeId and byte index of a character Id, if it exists
     pub fn lookup_character(&self, lookup_id: Id) -> Option<(NodeId, usize)> {
-        let node_id = self.id_to_node.get(&lookup_id).expect("Id passed to lookup_character does not exist.");
-        let node = self.nodes.get(&node_id).expect("node_id listed in id_to_node did not exist.");
+        let node_id = self
+            .id_to_node
+            .get(&lookup_id)
+            .expect("Id passed to lookup_character does not exist.");
+        let node = self
+            .nodes
+            .get(&node_id)
+            .expect("node_id listed in id_to_node did not exist.");
         let ids = match &node.data {
-            NodeData::StringSegment{ids, ..} => ids,
+            NodeData::StringSegment { ids, .. } => ids,
             _ => panic!("lookup_character called on non-character Id"),
         };
-        let (_, index) = ids.iter().find(|(id, _)| *id == lookup_id).expect("segment listed in id_to_node did not contain node");
+        let (_, index) = ids
+            .iter()
+            .find(|(id, _)| *id == lookup_id)
+            .expect("segment listed in id_to_node did not contain node");
         // if the index was deleted, return none
         let index = (*index)?;
         Some((*node_id, index))
@@ -236,10 +263,8 @@ impl <Id: Hash + Clone + Eq> Tree<Id> {
     }
 }
 
-
 #[cfg(test)]
 mod test {
     #[test]
-    fn test_merge_leaves() {
-    }
+    fn test_merge_leaves() {}
 }
