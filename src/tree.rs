@@ -243,7 +243,11 @@ impl<Id: Hash + Clone + Eq> Tree<Id> {
         /// Returns the byte index of `lookup_id` in the sequence node `node`. If the character was
         /// tombstoned, it returns the byte of the next character that isn't tombstoned. If there is no
         /// following character that isn't tombstoned, the length of the string in `node` is returned.
-        fn lookup_character_in_id_vec<Id: Eq>(ids: &[(Id, Option<usize>)], contents: &str, lookup_id: Id) -> usize {
+        fn lookup_character_in_id_vec<Id: Eq>(
+            ids: &[(Id, Option<usize>)],
+            contents: &str,
+            lookup_id: Id,
+        ) -> usize {
             let mut already_hit_id = false;
             for (id, index) in ids {
                 if *id == lookup_id {
@@ -275,7 +279,10 @@ impl<Id: Hash + Clone + Eq> Tree<Id> {
             _ => panic!("lookup_character called on non-character Id"),
         };
 
-        (*node_id, lookup_character_in_id_vec(ids, contents, lookup_id))
+        (
+            *node_id,
+            lookup_character_in_id_vec(ids, contents, lookup_id),
+        )
     }
 
     pub fn insert_character(&mut self, id: Id, character: char) -> Self {
