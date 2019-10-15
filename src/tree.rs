@@ -250,6 +250,8 @@ impl<Id: Hash + Clone + Eq> Tree<Id> {
             .expect("node_id listed in id_to_node did not exist.");
         let ids = match &node.data {
             NodeData::StringSegment { ids, .. } => ids,
+            // if Id is a string, this char corresponds with the first index in the first segment
+            NodeData::String { start, .. } => return Some((*start, 0)),
             _ => panic!("lookup_character called on non-character Id"),
         };
         let (_, index) = ids
