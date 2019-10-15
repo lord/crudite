@@ -77,6 +77,12 @@ impl <Id: Hash + Clone + Eq> Tree<Id> {
         }
     }
 
+    fn next_id(&mut self) -> usize {
+        let res = self.next_node;
+        self.next_node += 1;
+        res
+    }
+
     /// Deletes a segment with node id `usize`, returns deleted NodeData and new Tree. Caller is
     /// responsible for updating `id_to_node`, but this takes care of updating `next`, `prev`, or
     /// if necessary, `start` and `end`. If this is the only segment in the list, it will panic.
@@ -103,6 +109,44 @@ impl <Id: Hash + Clone + Eq> Tree<Id> {
         segment_data
     }
 
+    // Inserts a new, empty segment after `append_to`, and returns the usize of the new node.
+    fn insert_segment(&mut self, append_to: NodeId) -> usize {
+        let new_id = self.next_id();
+        let (parent, prev, next) = match &mut self.nodes[&append_to] {
+            Node{parent, data: NodeData::StringSegment{prev, next, ..}} => {
+                let old_next = *next;
+                *next = new_id;
+                (*parent, append_to, old_next)
+            },
+            Node{parent: _, data: NodeData::String{start, ..}} => {
+                let old_start = *start;
+                *start = new_id;
+                (Some(append_to), append_to, old_start)
+            },
+            _ => panic!("insert_segment called on non-segment node"),
+        };
+        let node = Node {
+            parent,
+            data: NodeData::StringSegment {
+                prev,
+                next,
+                contents: String::new(),
+                ids: Vec::new(),
+            }
+        };
+        self.nodes[&new_id] = node;
+        match &mut self.nodes[&next].data {
+            NodeData::StringSegment{prev, ..} => {
+                *prev = new_id;
+            },
+            NodeData::String{end, ..} => {
+                *end = new_id;
+            },
+            _ => panic!("insert_segment called on non-segment node"),
+        }
+        new_id
+    }
+
     /// If either `segment` or the next node are less than `JOIN_LEN`, and together they are
     /// less than `SPLIT_LEN`, then this function joins them together. In all other cases, it is a
     /// no-op.
@@ -117,31 +161,49 @@ impl <Id: Hash + Clone + Eq> Tree<Id> {
             NodeData::String{..} => return, // abort if this is off the edge of a string
             _ => panic!("consider_join called on non-segment node"),
         };
-        if segment_len < JOIN_LEN && next_len < JOIN_LEN && segment_len+next_len < SPLIT_LEN {
-            // delete `next` and merge into this
-            let deleted = self.delete_segment(next);
-            let (deleted_contents, deleted_ids) = match deleted.data {
-                NodeData::StringSegment{contents, ids, ..} => (contents, ids),
-                _ => panic!("consider_join called on non-segment node"),
-            };
-            for (id, _) in &deleted_ids {
-                self.id_to_node[id] = segment;
-            }
-            match &mut self.nodes[&segment].data {
-                NodeData::StringSegment{contents, ids, ..} => {
-                    contents.push_str(&deleted_contents);
-                    let segment_id_count = ids.len();
-                    ids.extend(deleted_ids.into_iter().map(|(id, byte_opt)| (id, byte_opt.map(|n| n + segment_id_count))));
-                },
-                _ => panic!("consider_join called on non-segment node"),
-            }
+        if segment_len >= JOIN_LEN || next_len >= JOIN_LEN || segment_len+next_len >= SPLIT_LEN {
+            return
+        }
+        // delete `next` and merge into this
+        let deleted = self.delete_segment(next);
+        let (deleted_contents, deleted_ids) = match deleted.data {
+            NodeData::StringSegment{contents, ids, ..} => (contents, ids),
+            _ => panic!("consider_join called on non-segment node"),
+        };
+        for (id, _) in &deleted_ids {
+            self.id_to_node[id] = segment;
+        }
+        match &mut self.nodes[&segment].data {
+            NodeData::StringSegment{contents, ids, ..} => {
+                contents.push_str(&deleted_contents);
+                let segment_id_count = ids.len();
+                ids.extend(deleted_ids.into_iter().map(|(id, byte_opt)| (id, byte_opt.map(|n| n + segment_id_count))));
+            },
+            _ => panic!("consider_join called on non-segment node"),
         }
     }
-
-    pub fn insert_character(&self, id: Id, character: char) -> Self {
-        let mut tree = self.clone();
-        tree
+    /// If `segment` is greater than `SPLIT_LEN`, we'll split it into two pieces. We'll also then
+    /// check if either of the resulting segments is short enough to merge with the next segment
+    /// over. If the resulting split strings are too long, `consider_split` will recurse on the new
+    /// children.
+    // TODO this could probably be sped up to instantly segment a very long node into `n` children.
+    fn consider_split(&mut self, segment: usize) {
+        let contents = match &self.nodes[&segment].data {
+            NodeData::StringSegment{contents, ..} => contents,
+            NodeData::String{..} => return, // abort if this is off the edge of a string
+            _ => panic!("consider_split called on non-segment node"),
+        };
+        let len = contents.len();
+        if len <= SPLIT_LEN {
+            return
+        }
+        // the first index of the second segment. need to do this stuff to make sure we split
+        // along a codepoint boundary
+        let split_start = contents.char_indices().find(|(i, _)| *i >= len/2).expect("somehow we failed to find a split point for the string. maybe SPLIT_LEN is really small?");
     }
+
+    // pub fn insert_character(&mut self, id: Id, character: char) -> Self {
+    // }
 }
 
 
