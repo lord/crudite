@@ -218,8 +218,17 @@ impl <Id: Hash + Clone + Eq> Tree<Id> {
     }
 
     /// Returns the NodeId and byte index of a character Id, if it exists
-    pub fn lookup_character(&self, id: Id) -> Option<(NodeId, usize)> {
-        unimplemented!()
+    pub fn lookup_character(&self, lookup_id: Id) -> Option<(NodeId, usize)> {
+        let node_id = self.id_to_node.get(&lookup_id).expect("Id passed to lookup_character does not exist.");
+        let node = self.nodes.get(&node_id).expect("node_id listed in id_to_node did not exist.");
+        let ids = match &node.data {
+            NodeData::StringSegment{ids, ..} => ids,
+            _ => panic!("lookup_character called on non-character Id"),
+        };
+        let (_, index) = ids.iter().find(|(id, _)| *id == lookup_id).expect("segment listed in id_to_node did not contain node");
+        // if the index was deleted, return none
+        let index = (*index)?;
+        Some((*node_id, index))
     }
 
     pub fn insert_character(&mut self, id: Id, character: char) -> Self {
