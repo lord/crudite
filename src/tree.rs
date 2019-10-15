@@ -198,24 +198,33 @@ impl <Id: Hash + Clone + Eq> Tree<Id> {
         }
         // the first index of the second segment. need to do this stuff to make sure we split
         // along a codepoint boundary
-        let split_start_string = contents.char_indices().find(|(i, _)| *i >= len/2).expect("somehow we failed to find a split point for the string. maybe SPLIT_LEN is really small?");
-        let (split_start_vec, _) = ids.iter().enumerate().find(|(_, byte_i)| Some(*byte_i) == split_start_string).expect("somehow failed to find a split point for ids");
+        let (split_start_string, _) = contents.char_indices().find(|(i, _)| *i >= len/2).expect("somehow we failed to find a split point for the string. maybe SPLIT_LEN is really small?");
+        let (split_start_vec, _) = ids.iter().enumerate().find(|(_, (_, byte_i))| *byte_i == Some(split_start_string)).expect("somehow failed to find a split point for ids");
         let new_string = contents.split_off(split_start_string);
-        let new_ids = ids.split_off(split_start_vec).into_iter().map(|n| n.map(|n| n -= split_start_string)).collect();
+        let new_ids: Vec<(Id, Option<usize>)> = ids.split_off(split_start_vec).into_iter().map(|(id, n)| (id, n.map(|n| n - split_start_string))).collect();
         let new_node_id = self.insert_segment(segment);
-        match &mut self.nodes[new_node_id] {
+        for (id, _) in &new_ids {
+            self.id_to_node[id] = new_node_id;
+        }
+        match &mut self.nodes[&new_node_id].data {
             NodeData::StringSegment{contents, ids, ..} => {
-                ids = new_ids;
-                contents = new_string;
+                *ids = new_ids;
+                *contents = new_string;
             },
             _ => panic!("insert_segment created wrong type of node"),
         }
-        consider_split(segment);
-        consider_split(new_node_id);
+        self.consider_split(segment);
+        self.consider_split(new_node_id);
     }
 
-    // pub fn insert_character(&mut self, id: Id, character: char) -> Self {
-    // }
+    /// Returns the NodeId and byte index of a character Id, if it exists
+    pub fn lookup_character(&self, id: Id) -> Option<(NodeId, usize)> {
+        unimplemented!()
+    }
+
+    pub fn insert_character(&mut self, id: Id, character: char) -> Self {
+        unimplemented!()
+    }
 }
 
 
