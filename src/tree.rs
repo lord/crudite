@@ -175,21 +175,20 @@ impl <Id: Hash + Clone + Eq> Tree<Id> {
         }
         match &mut self.nodes[&segment].data {
             NodeData::StringSegment{contents, ids, ..} => {
+                ids.extend(deleted_ids.into_iter().map(|(id, byte_opt)| (id, byte_opt.map(|n| n + contents.len()))));
                 contents.push_str(&deleted_contents);
-                let segment_id_count = ids.len();
-                ids.extend(deleted_ids.into_iter().map(|(id, byte_opt)| (id, byte_opt.map(|n| n + segment_id_count))));
             },
             _ => panic!("consider_join called on non-segment node"),
         }
     }
-    /// If `segment` is greater than `SPLIT_LEN`, we'll split it into two pieces. We'll also then
-    /// check if either of the resulting segments is short enough to merge with the next segment
-    /// over. If the resulting split strings are too long, `consider_split` will recurse on the new
-    /// children.
+    /// If `segment` is greater than `SPLIT_LEN`, we'll split it into two pieces. This recurses on
+    /// the children, further splitting them if they're still too long.
     // TODO this could probably be sped up to instantly segment a very long node into `n` children.
+    // TODO this should call consider_join somehow so that two short things next to each other will
+    // merge
     fn consider_split(&mut self, segment: usize) {
-        let contents = match &self.nodes[&segment].data {
-            NodeData::StringSegment{contents, ..} => contents,
+        let (contents, ids) = match &mut self.nodes[&segment].data {
+            NodeData::StringSegment{contents, ids, ..} => (contents, ids),
             NodeData::String{..} => return, // abort if this is off the edge of a string
             _ => panic!("consider_split called on non-segment node"),
         };
@@ -199,7 +198,20 @@ impl <Id: Hash + Clone + Eq> Tree<Id> {
         }
         // the first index of the second segment. need to do this stuff to make sure we split
         // along a codepoint boundary
-        let split_start = contents.char_indices().find(|(i, _)| *i >= len/2).expect("somehow we failed to find a split point for the string. maybe SPLIT_LEN is really small?");
+        let split_start_string = contents.char_indices().find(|(i, _)| *i >= len/2).expect("somehow we failed to find a split point for the string. maybe SPLIT_LEN is really small?");
+        let (split_start_vec, _) = ids.iter().enumerate().find(|(_, byte_i)| Some(*byte_i) == split_start_string).expect("somehow failed to find a split point for ids");
+        let new_string = contents.split_off(split_start_string);
+        let new_ids = ids.split_off(split_start_vec).into_iter().map(|n| n.map(|n| n -= split_start_string)).collect();
+        let new_node_id = self.insert_segment(segment);
+        match &mut self.nodes[new_node_id] {
+            NodeData::StringSegment{contents, ids, ..} => {
+                ids = new_ids;
+                contents = new_string;
+            },
+            _ => panic!("insert_segment created wrong type of node"),
+        }
+        consider_split(segment);
+        consider_split(new_node_id);
     }
 
     // pub fn insert_character(&mut self, id: Id, character: char) -> Self {
