@@ -208,7 +208,10 @@ impl<Id: Hash + Clone + Eq> Tree<Id> {
         }
         // the first index of the second segment. need to do this stuff to make sure we split
         // along a codepoint boundary
-        let (split_start_string, _) = contents.char_indices().find(|(i, _)| *i >= len/2).expect("somehow we failed to find a split point for the string. maybe SPLIT_LEN is really small?");
+        let (split_start_string, _) = contents
+            .char_indices()
+            .find(|(i, _)| *i >= len / 2)
+            .expect("somehow we failed to find a split point for the string.");
         let (split_start_vec, _) = ids
             .iter()
             .enumerate()
