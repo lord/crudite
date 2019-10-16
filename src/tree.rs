@@ -7,8 +7,8 @@
 //! access `O(1)` by using a linked list.
 
 use im::{HashMap, Vector};
-use std::hash::Hash;
 use std::fmt::Debug;
+use std::hash::Hash;
 
 const JOIN_LEN: usize = 511;
 const SPLIT_LEN: usize = 1024;
@@ -84,27 +84,30 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             nodes: HashMap::new(),
         };
         tree.id_to_node.insert(root_id, 0);
-        tree.nodes.insert(0, Node {
-            parent: None,
-            data: root_node,
-        });
+        tree.nodes.insert(
+            0,
+            Node {
+                parent: None,
+                data: root_node,
+            },
+        );
         tree
     }
 
     pub fn empty_string(root_id: Id) -> Self {
-        let mut tree = Self::new(root_id, NodeData::String {
-            start: 1,
-            end: 1,
-        });
-        tree.nodes.insert(1, Node {
-            parent: Some(0),
-            data: NodeData::StringSegment {
-                next: 0,
-                prev: 0,
-                ids: vec![],
-                contents: String::new(),
-            }
-        });
+        let mut tree = Self::new(root_id, NodeData::String { start: 1, end: 1 });
+        tree.nodes.insert(
+            1,
+            Node {
+                parent: Some(0),
+                data: NodeData::StringSegment {
+                    next: 0,
+                    prev: 0,
+                    ids: vec![],
+                    contents: String::new(),
+                },
+            },
+        );
         tree.next_node += 1;
         tree
     }
@@ -240,7 +243,8 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         // the first index of the second segment. need to do this stuff to make sure we split
         // along a codepoint boundary
         let split_start_vec = ids.len() / 2;
-        let split_start_string = ids.iter()
+        let split_start_string = ids
+            .iter()
             .skip(split_start_vec)
             .find_map(|(_, byte_idx)| byte_idx.clone())
             .unwrap_or(contents.len());
@@ -314,13 +318,13 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
                 }
             }
             if id == lookup_id {
-                id_list_index_opt = Some(i+1);
+                id_list_index_opt = Some(i + 1);
                 // don't check for string index until next iteration of loop; we want the *next*
                 // char index to be the insertion point, not this one
             }
         }
         if let Some(id_list_index) = id_list_index_opt {
-            return Ok((*node_id, contents.len(), id_list_index))
+            return Ok((*node_id, contents.len(), id_list_index));
         }
         panic!("id not found in segment id list");
     }
@@ -348,14 +352,19 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
                 NodeData::StringSegment { next, contents, .. } => {
                     string.push_str(contents);
                     *next
-                },
+                }
                 _ => panic!("get_string called on non-string Id"),
             };
         }
         Ok(string)
     }
 
-    pub fn insert_character(&mut self, append_id: Id, this_id: Id, character: char) -> Result<(), TreeError> {
+    pub fn insert_character(
+        &mut self,
+        append_id: Id,
+        this_id: Id,
+        character: char,
+    ) -> Result<(), TreeError> {
         if self.id_to_node.contains_key(&this_id) {
             return Err(TreeError::DuplicateId);
         }
@@ -371,7 +380,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
                 ids.insert(id_list_index, (this_id.clone(), Some(string_index)));
                 self.id_to_node.insert(this_id, node_id);
                 self.consider_split(node_id);
-            },
+            }
             _ => panic!("unknown object type!!"),
         }
         Ok(())
@@ -416,11 +425,23 @@ mod test {
     fn invalid_ids_error() {
         let mut tree = Tree::empty_string(MyId(0));
         assert_eq!(tree.insert_character(MyId(0), MyId(1), 'a'), Ok(()));
-        assert_eq!(tree.insert_character(MyId(0), MyId(1), 'a'), Err(TreeError::DuplicateId));
-        assert_eq!(tree.insert_character(MyId(1), MyId(0), 'a'), Err(TreeError::DuplicateId));
-        assert_eq!(tree.insert_character(MyId(2), MyId(5), 'a'), Err(TreeError::UnknownId));
+        assert_eq!(
+            tree.insert_character(MyId(0), MyId(1), 'a'),
+            Err(TreeError::DuplicateId)
+        );
+        assert_eq!(
+            tree.insert_character(MyId(1), MyId(0), 'a'),
+            Err(TreeError::DuplicateId)
+        );
+        assert_eq!(
+            tree.insert_character(MyId(2), MyId(5), 'a'),
+            Err(TreeError::UnknownId)
+        );
         assert_eq!(tree.delete_character(MyId(2)), Err(TreeError::UnknownId));
-        assert_eq!(tree.delete_character(MyId(0)), Err(TreeError::InvalidNodeType));
+        assert_eq!(
+            tree.delete_character(MyId(0)),
+            Err(TreeError::InvalidNodeType)
+        );
     }
 
     #[test]
@@ -451,7 +472,8 @@ mod test {
         tree.insert_character(MyId(0), MyId(4), 'd').unwrap();
         assert_eq!(tree.get_string(MyId(0)), Ok("dacb".to_string()));
         for i in 5..10000 {
-            tree.insert_character(MyId(i-1), MyId(i), num_to_char(i)).unwrap();
+            tree.insert_character(MyId(i - 1), MyId(i), num_to_char(i))
+                .unwrap();
         }
 
         let long_insert = (5..10000).map(|i| num_to_char(i)).collect::<String>();
