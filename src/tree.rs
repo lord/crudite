@@ -259,6 +259,29 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     }
     // TODO i think we should have the nodes be based on length of lookup insertion point instead
     // of length of string to avoid bad cases where there are massive clones?? maybe
+    fn lookup_id_index(&self, lookup_id: &Id) -> (NodeId, usize) {
+        let node_id = self
+            .id_to_node
+            .get(&lookup_id)
+            .expect("Id passed to lookup_character does not exist.");
+        let node = self
+            .nodes
+            .get(&node_id)
+            .expect("node_id listed in id_to_node did not exist.");
+        let ids = match &node.data {
+            NodeData::StringSegment { ids, .. } => ids,
+            _ => panic!("lookup_character called on non-character Id"),
+        };
+
+        for (i, (id, string_index_opt)) in ids.iter().enumerate() {
+            if id == lookup_id {
+                return (*node_id, i);
+                // don't check for string index until next iteration of loop; we want the *next*
+                // char index to be the insertion point, not this one
+            }
+        }
+        panic!("couldn't find id in list");
+    }
 
     /// From a character id, looks up the `(containing segment id, character index, id list index)`
     /// that an appended character would need to be inserted at
@@ -345,6 +368,24 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             _ => panic!("unknown object type!!"),
         }
     }
+
+    // TODO since untrusted code is going in here, should make invalid Ids return an error instead
+    pub fn delete_character(&mut self, char_id: Id) {
+        let (node_id, id_list_index) = self.lookup_id_index(&char_id);
+        match &mut self.nodes[&node_id].data {
+            NodeData::StringSegment { ids, contents, .. } => {
+                if let Some(old_byte_index) = ids[id_list_index].1.take() {
+                    let deleted_char = contents.remove(old_byte_index);
+                    for (_, byte_idx) in ids.iter_mut().skip(id_list_index) {
+                        if let Some(byte_idx) = byte_idx {
+                            *byte_idx -= deleted_char.len_utf8();
+                        }
+                    }
+                }
+            }
+            _ => panic!("unknown object type!!"),
+        }
+    }
 }
 
 // TODO should double check ids were not already taken?
@@ -364,6 +405,20 @@ mod test {
             _ => '4',
         }
     }
+
+    #[test]
+    fn simple_delete() {
+        let mut tree = Tree::empty_string(MyId(0));
+        tree.insert_character(MyId(0), MyId(1), 'a');
+        assert_eq!(tree.get_string(MyId(0)), "a");
+        tree.insert_character(MyId(1), MyId(2), 'b');
+        assert_eq!(tree.get_string(MyId(0)), "ab");
+        tree.delete_character(MyId(1));
+        assert_eq!(tree.get_string(MyId(0)), "b");
+        tree.delete_character(MyId(2));
+        assert_eq!(tree.get_string(MyId(0)), "");
+    }
+
     #[test]
     fn insert_character() {
         let mut tree = Tree::empty_string(MyId(0));
