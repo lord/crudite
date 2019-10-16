@@ -264,8 +264,6 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         self.consider_split(segment);
         self.consider_split(new_node_id);
     }
-    // TODO i think we should have the nodes be based on length of lookup insertion point instead
-    // of length of string to avoid bad cases where there are massive clones?? maybe
     fn lookup_id_index(&self, lookup_id: &Id) -> Result<(NodeId, usize), TreeError> {
         let node_id = self
             .id_to_node
@@ -357,7 +355,6 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         Ok(string)
     }
 
-    // TODO since untrusted code is going in here, should make invalid Ids return an error instead
     pub fn insert_character(&mut self, append_id: Id, this_id: Id, character: char) -> Result<(), TreeError> {
         if self.id_to_node.contains_key(&this_id) {
             return Err(TreeError::DuplicateId);
@@ -380,7 +377,6 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         Ok(())
     }
 
-    // TODO since untrusted code is going in here, should make invalid Ids return an error instead
     pub fn delete_character(&mut self, char_id: Id) -> Result<(), TreeError> {
         let (node_id, id_list_index) = self.lookup_id_index(&char_id)?;
         match &mut self.nodes[&node_id].data {
@@ -399,8 +395,6 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         Ok(())
     }
 }
-
-// TODO should double check ids were not already taken?
 
 #[cfg(test)]
 mod test {
