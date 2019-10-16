@@ -359,6 +359,16 @@ mod test {
     use super::*;
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     struct MyId(usize);
+
+    fn num_to_char(i: usize) -> char {
+        match i % 5 {
+            0 => '0',
+            1 => '1',
+            2 => '2',
+            3 => '3',
+            _ => '4',
+        }
+    }
     #[test]
     fn blah() {
         let mut tree = Tree::empty_string(MyId(0));
@@ -371,10 +381,10 @@ mod test {
         tree.insert_character(MyId(0), MyId(4), 'd');
         assert_eq!(tree.get_string(MyId(0)), "dacb");
         for i in 5..10000 {
-            tree.insert_character(MyId(i-1), MyId(i), 'e');
+            tree.insert_character(MyId(i-1), MyId(i), num_to_char(i));
         }
 
-        let es = (5..10000).map(|_| "e").collect::<String>();
-        assert_eq!(tree.get_string(MyId(0)), format!("d{}acb", es));
+        let long_insert = (5..10000).map(|i| num_to_char(i)).collect::<String>();
+        assert_eq!(tree.get_string(MyId(0)), format!("d{}acb", long_insert));
     }
 }
