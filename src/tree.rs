@@ -415,6 +415,9 @@ mod test {
         assert_eq!(tree.get_string(MyId(0)), "ab");
         tree.delete_character(MyId(1));
         assert_eq!(tree.get_string(MyId(0)), "b");
+        // test delete same char; should be noop
+        tree.delete_character(MyId(1));
+        assert_eq!(tree.get_string(MyId(0)), "b");
         tree.delete_character(MyId(2));
         assert_eq!(tree.get_string(MyId(0)), "");
     }
