@@ -21,7 +21,8 @@ pub enum TreeError {
 }
 
 /// Tree represents a JSON-compatible document.
-type NodeId = usize;
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+struct NodeId(usize);
 #[derive(Clone, Debug)]
 pub struct Tree<Id: Hash + Clone + Eq + Debug> {
     /// Number to use for the next node that is created.
@@ -49,25 +50,25 @@ enum NodeData<Id: Hash + Clone + Eq + Debug> {
     False,
     Null,
     Object {
-        items: HashMap<String, usize>,
+        items: HashMap<String, NodeId>,
     },
     /// Represents a JSON string value.
     String {
         /// The first `TextSegment` in the string value. May be equal to `end` if there is only one
         /// segment.
-        start: usize,
+        start: NodeId,
         /// The last `TextSegment` in the string value. May be equal to `start` if there is only
         /// one segment.
-        end: usize,
+        end: NodeId,
     },
     /// Represents a range of a JSON string value.
     StringSegment {
         /// Node index of the previous `TextSegment` in this string. If this is the first segment
         /// in the string, refers to the `Text` parent.
-        prev: usize,
+        prev: NodeId,
         /// Node index of the next `TextSegment` in this string. If this is the last segment
         /// in the string, refers to the `Text` parent.
-        next: usize,
+        next: NodeId,
         /// String contents of this segment.
         contents: String,
         /// List of ids. If they are a tombstone, the the Option will be None, if they represent a
@@ -79,13 +80,13 @@ enum NodeData<Id: Hash + Clone + Eq + Debug> {
 impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     fn new(root_id: Id, root_node: NodeData<Id>) -> Self {
         let mut tree = Tree {
-            next_node: 1,
+            next_node: NodeId(1),
             id_to_node: HashMap::new(),
             nodes: HashMap::new(),
         };
-        tree.id_to_node.insert(root_id, 0);
+        tree.id_to_node.insert(root_id, NodeId(0));
         tree.nodes.insert(
-            0,
+            NodeId(0),
             Node {
                 parent: None,
                 data: root_node,
@@ -95,26 +96,26 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     }
 
     pub fn empty_string(root_id: Id) -> Self {
-        let mut tree = Self::new(root_id, NodeData::String { start: 1, end: 1 });
+        let mut tree = Self::new(root_id, NodeData::String { start: NodeId(1), end: NodeId(1) });
         tree.nodes.insert(
-            1,
+            NodeId(1),
             Node {
-                parent: Some(0),
+                parent: Some(NodeId(0)),
                 data: NodeData::StringSegment {
-                    next: 0,
-                    prev: 0,
+                    next: NodeId(0),
+                    prev: NodeId(0),
                     ids: vec![],
                     contents: String::new(),
                 },
             },
         );
-        tree.next_node += 1;
+        tree.next_node.0 += 1;
         tree
     }
 
-    fn next_id(&mut self) -> usize {
+    fn next_id(&mut self) -> NodeId {
         let res = self.next_node;
-        self.next_node += 1;
+        self.next_node.0 += 1;
         res
     }
 
@@ -145,7 +146,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     }
 
     // Inserts a new, empty segment after `append_to`, and returns the usize of the new node.
-    fn insert_segment(&mut self, append_to: NodeId) -> usize {
+    fn insert_segment(&mut self, append_to: NodeId) -> NodeId {
         let new_id = self.next_id();
         let (parent, prev, next) = match &mut self.nodes[&append_to] {
             Node {
@@ -191,7 +192,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     /// If either `segment` or the next node are less than `JOIN_LEN`, and together they are
     /// less than `SPLIT_LEN`, then this function joins them together. In all other cases, it is a
     /// no-op.
-    fn consider_join(&mut self, segment: usize) {
+    fn consider_join(&mut self, segment: NodeId) {
         let (segment_len, next) = match &self.nodes[&segment].data {
             NodeData::StringSegment { ids, next, .. } => (ids.len(), *next),
             NodeData::String { .. } => return, // abort if this is off the edge of a string
@@ -231,7 +232,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     // TODO this could probably be sped up to instantly segment a very long node into `n` children.
     // TODO this should call consider_join somehow so that two short things next to each other will
     // merge
-    fn consider_split(&mut self, segment: usize) {
+    fn consider_split(&mut self, segment: NodeId) {
         let (contents, ids) = match &mut self.nodes[&segment].data {
             NodeData::StringSegment { contents, ids, .. } => (contents, ids),
             NodeData::String { .. } => return, // abort if this is off the edge of a string
