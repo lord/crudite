@@ -242,10 +242,7 @@ impl<Id: Hash + Clone + Eq> Tree<Id> {
 
     /// From a character id, looks up the `(containing segment id, character index, id list index)`
     /// that an appended character would need to be inserted at
-    fn lookup_insertion_point(&self, lookup_id: Id) -> (NodeId, usize, usize) {
-        /// Returns the byte index of `lookup_id` in the sequence node `node`. If the character was
-        /// tombstoned, it returns the byte of the next character that isn't tombstoned. If there is no
-        /// following character that isn't tombstoned, the length of the string in `node` is returned.
+    fn lookup_insertion_point(&self, lookup_id: &Id) -> (NodeId, usize, usize) {
         let node_id = self
             .id_to_node
             .get(&lookup_id)
@@ -268,7 +265,7 @@ impl<Id: Hash + Clone + Eq> Tree<Id> {
                     return (*node_id, *string_index, id_list_index);
                 }
             }
-            if *id == lookup_id {
+            if id == lookup_id {
                 id_list_index_opt = Some(i+1);
                 // don't check for string index until next iteration of loop; we want the *next*
                 // char index to be the insertion point, not this one
@@ -280,15 +277,22 @@ impl<Id: Hash + Clone + Eq> Tree<Id> {
         panic!("id not found in segment id list");
     }
 
-    // // TODO since untrusted code is going in here, should make invalid Ids return an error instead
-    // pub fn insert_character(&mut self, id: Id, character: char) -> Self {
-    //     let (node_id, index) = self.lookup_character(id);
-    //     match &mut self.nodes[node_id] {
-    //         NodeData::StringSegment { ids, contents, .. } => {
-    //         },
-    //         _ => panic!("unknown object type!!"),
-    //     }
-    // }
+    // TODO since untrusted code is going in here, should make invalid Ids return an error instead
+    pub fn insert_character(&mut self, id: Id, character: char) {
+        let (node_id, string_index, id_list_index) = self.lookup_insertion_point(&id);
+        match &mut self.nodes[&node_id].data {
+            NodeData::StringSegment { ids, contents, .. } => {
+                contents.insert(string_index, character);
+                for (_, index_opt) in ids.iter_mut().skip(id_list_index) {
+                    if let Some(index) = index_opt {
+                        *index += character.len_utf8();
+                    }
+                }
+                ids.insert(id_list_index, (id, Some(string_index)));
+            },
+            _ => panic!("unknown object type!!"),
+        }
+    }
 }
 
 #[cfg(test)]
