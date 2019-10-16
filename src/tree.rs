@@ -361,5 +361,9 @@ mod test {
         assert_eq!(tree.get_string(MyId(0)), "a");
         tree.insert_character(MyId(1), MyId(2), 'b');
         assert_eq!(tree.get_string(MyId(0)), "ab");
+        tree.insert_character(MyId(1), MyId(3), 'c');
+        assert_eq!(tree.get_string(MyId(0)), "acb");
+        tree.insert_character(MyId(0), MyId(4), 'd');
+        assert_eq!(tree.get_string(MyId(0)), "dacb");
     }
 }
