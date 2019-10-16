@@ -238,32 +238,11 @@ impl<Id: Hash + Clone + Eq> Tree<Id> {
         self.consider_split(new_node_id);
     }
 
-    /// Returns the NodeId and byte index of a character Id
+    /// From a character id, looks up the `(containing segment id, character index, id list index)`
     fn lookup_character(&self, lookup_id: Id) -> (NodeId, usize) {
         /// Returns the byte index of `lookup_id` in the sequence node `node`. If the character was
         /// tombstoned, it returns the byte of the next character that isn't tombstoned. If there is no
         /// following character that isn't tombstoned, the length of the string in `node` is returned.
-        fn lookup_character_in_id_vec<Id: Eq>(
-            ids: &[(Id, Option<usize>)],
-            contents: &str,
-            lookup_id: Id,
-        ) -> usize {
-            let mut already_hit_id = false;
-            for (id, index) in ids {
-                if *id == lookup_id {
-                    already_hit_id = true;
-                }
-                if already_hit_id {
-                    if let Some(index) = index {
-                        return *index;
-                    }
-                }
-            }
-            if !already_hit_id {
-                panic!("id not found in segment id list");
-            }
-            contents.len()
-        }
         let node_id = self
             .id_to_node
             .get(&lookup_id)
@@ -279,19 +258,37 @@ impl<Id: Hash + Clone + Eq> Tree<Id> {
             _ => panic!("lookup_character called on non-character Id"),
         };
 
-        (
-            *node_id,
-            lookup_character_in_id_vec(ids, contents, lookup_id),
-        )
+        let mut already_hit_id = false;
+        for (id, index) in ids {
+            if *id == lookup_id {
+                already_hit_id = true;
+            }
+            if already_hit_id {
+                if let Some(index) = index {
+                    return (*node_id, *index);
+                }
+            }
+        }
+        if !already_hit_id {
+            panic!("id not found in segment id list");
+        }
+        (*node_id, contents.len())
     }
 
-    pub fn insert_character(&mut self, id: Id, character: char) -> Self {
-        unimplemented!()
-    }
+    // // TODO since untrusted code is going in here, should make invalid Ids return an error instead
+    // pub fn insert_character(&mut self, id: Id, character: char) -> Self {
+    //     let (node_id, index) = self.lookup_character(id);
+    //     match &mut self.nodes[node_id] {
+    //         NodeData::StringSegment { ids, contents, .. } => {
+    //         },
+    //         _ => panic!("unknown object type!!"),
+    //     }
+    // }
 }
 
 #[cfg(test)]
 mod test {
     #[test]
-    fn test_merge_leaves() {}
+    fn merge_leaves() {
+    }
 }
