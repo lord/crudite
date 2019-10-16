@@ -239,7 +239,7 @@ impl<Id: Hash + Clone + Eq> Tree<Id> {
     }
 
     /// From a character id, looks up the `(containing segment id, character index, id list index)`
-    fn lookup_character(&self, lookup_id: Id) -> (NodeId, usize) {
+    fn lookup_character(&self, lookup_id: Id) -> (NodeId, usize, usize) {
         /// Returns the byte index of `lookup_id` in the sequence node `node`. If the character was
         /// tombstoned, it returns the byte of the next character that isn't tombstoned. If there is no
         /// following character that isn't tombstoned, the length of the string in `node` is returned.
@@ -254,25 +254,25 @@ impl<Id: Hash + Clone + Eq> Tree<Id> {
         let (ids, contents) = match &node.data {
             NodeData::StringSegment { ids, contents, .. } => (ids, contents),
             // if Id is a string, this char corresponds with the first index in the first segment
-            NodeData::String { start, .. } => return (*start, 0),
+            NodeData::String { start, .. } => return (*start, 0, 0),
             _ => panic!("lookup_character called on non-character Id"),
         };
 
-        let mut already_hit_id = false;
-        for (id, index) in ids {
+        let mut id_list_index_opt = None;
+        for (i, (id, string_index_opt)) in ids.iter().enumerate() {
             if *id == lookup_id {
-                already_hit_id = true;
+                id_list_index_opt = Some(i);
             }
-            if already_hit_id {
-                if let Some(index) = index {
-                    return (*node_id, *index);
+            if let Some(id_list_index) = id_list_index_opt {
+                if let Some(string_index) = string_index_opt {
+                    return (*node_id, *string_index, id_list_index);
                 }
             }
         }
-        if !already_hit_id {
-            panic!("id not found in segment id list");
+        if let Some(id_list_index) = id_list_index_opt {
+            return (*node_id, contents.len(), id_list_index)
         }
-        (*node_id, contents.len())
+        panic!("id not found in segment id list");
     }
 
     // // TODO since untrusted code is going in here, should make invalid Ids return an error instead
