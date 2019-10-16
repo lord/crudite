@@ -237,9 +237,12 @@ impl<Id: Hash + Clone + Eq> Tree<Id> {
         self.consider_split(segment);
         self.consider_split(new_node_id);
     }
+    // TODO i think we should have the nodes be based on length of lookup insertion point instead
+    // of length of string to avoid bad cases where there are massive clones?? maybe
 
     /// From a character id, looks up the `(containing segment id, character index, id list index)`
-    fn lookup_character(&self, lookup_id: Id) -> (NodeId, usize, usize) {
+    /// that an appended character would need to be inserted at
+    fn lookup_insertion_point(&self, lookup_id: Id) -> (NodeId, usize, usize) {
         /// Returns the byte index of `lookup_id` in the sequence node `node`. If the character was
         /// tombstoned, it returns the byte of the next character that isn't tombstoned. If there is no
         /// following character that isn't tombstoned, the length of the string in `node` is returned.
@@ -260,13 +263,15 @@ impl<Id: Hash + Clone + Eq> Tree<Id> {
 
         let mut id_list_index_opt = None;
         for (i, (id, string_index_opt)) in ids.iter().enumerate() {
-            if *id == lookup_id {
-                id_list_index_opt = Some(i);
-            }
             if let Some(id_list_index) = id_list_index_opt {
                 if let Some(string_index) = string_index_opt {
                     return (*node_id, *string_index, id_list_index);
                 }
+            }
+            if *id == lookup_id {
+                id_list_index_opt = Some(i+1);
+                // don't check for string index until next iteration of loop; we want the *next*
+                // char index to be the insertion point, not this one
             }
         }
         if let Some(id_list_index) = id_list_index_opt {
