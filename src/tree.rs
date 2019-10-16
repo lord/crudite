@@ -17,6 +17,7 @@ const SPLIT_LEN: usize = 1024;
 pub enum TreeError {
     UnknownId,
     InvalidNodeType,
+    DuplicateId,
 }
 
 /// Tree represents a JSON-compatible document.
@@ -358,6 +359,9 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
 
     // TODO since untrusted code is going in here, should make invalid Ids return an error instead
     pub fn insert_character(&mut self, append_id: Id, this_id: Id, character: char) -> Result<(), TreeError> {
+        if self.id_to_node.contains_key(&this_id) {
+            return Err(TreeError::DuplicateId);
+        }
         let (node_id, string_index, id_list_index) = self.lookup_insertion_point(&append_id)?;
         match &mut self.nodes[&node_id].data {
             NodeData::StringSegment { ids, contents, .. } => {
@@ -412,6 +416,17 @@ mod test {
             3 => '3',
             _ => '4',
         }
+    }
+
+    #[test]
+    fn invalid_ids_error() {
+        let mut tree = Tree::empty_string(MyId(0));
+        assert_eq!(tree.insert_character(MyId(0), MyId(1), 'a'), Ok(()));
+        assert_eq!(tree.insert_character(MyId(0), MyId(1), 'a'), Err(TreeError::DuplicateId));
+        assert_eq!(tree.insert_character(MyId(1), MyId(0), 'a'), Err(TreeError::DuplicateId));
+        assert_eq!(tree.insert_character(MyId(2), MyId(5), 'a'), Err(TreeError::UnknownId));
+        assert_eq!(tree.delete_character(MyId(2)), Err(TreeError::UnknownId));
+        assert_eq!(tree.delete_character(MyId(0)), Err(TreeError::InvalidNodeType));
     }
 
     #[test]
