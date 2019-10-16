@@ -13,6 +13,12 @@ use std::fmt::Debug;
 const JOIN_LEN: usize = 511;
 const SPLIT_LEN: usize = 1024;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum TreeError {
+    UnknownId,
+    InvalidNodeType,
+}
+
 /// Tree represents a JSON-compatible document.
 type NodeId = usize;
 #[derive(Clone, Debug)]
@@ -259,7 +265,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     }
     // TODO i think we should have the nodes be based on length of lookup insertion point instead
     // of length of string to avoid bad cases where there are massive clones?? maybe
-    fn lookup_id_index(&self, lookup_id: &Id) -> (NodeId, usize) {
+    fn lookup_id_index(&self, lookup_id: &Id) -> Result<(NodeId, usize), TreeError> {
         let node_id = self
             .id_to_node
             .get(&lookup_id)
@@ -275,7 +281,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
 
         for (i, (id, string_index_opt)) in ids.iter().enumerate() {
             if id == lookup_id {
-                return (*node_id, i);
+                return Ok((*node_id, i));
                 // don't check for string index until next iteration of loop; we want the *next*
                 // char index to be the insertion point, not this one
             }
@@ -285,7 +291,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
 
     /// From a character id, looks up the `(containing segment id, character index, id list index)`
     /// that an appended character would need to be inserted at
-    fn lookup_insertion_point(&self, lookup_id: &Id) -> (NodeId, usize, usize) {
+    fn lookup_insertion_point(&self, lookup_id: &Id) -> Result<(NodeId, usize, usize), TreeError> {
         let node_id = self
             .id_to_node
             .get(&lookup_id)
@@ -297,7 +303,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         let (ids, contents) = match &node.data {
             NodeData::StringSegment { ids, contents, .. } => (ids, contents),
             // if Id is a string, this char corresponds with the first index in the first segment
-            NodeData::String { start, .. } => return (*start, 0, 0),
+            NodeData::String { start, .. } => return Ok((*start, 0, 0)),
             _ => panic!("lookup_character called on non-character Id"),
         };
 
@@ -305,7 +311,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         for (i, (id, string_index_opt)) in ids.iter().enumerate() {
             if let Some(id_list_index) = id_list_index_opt {
                 if let Some(string_index) = string_index_opt {
-                    return (*node_id, *string_index, id_list_index);
+                    return Ok((*node_id, *string_index, id_list_index));
                 }
             }
             if id == lookup_id {
@@ -315,12 +321,12 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             }
         }
         if let Some(id_list_index) = id_list_index_opt {
-            return (*node_id, contents.len(), id_list_index)
+            return Ok((*node_id, contents.len(), id_list_index))
         }
         panic!("id not found in segment id list");
     }
 
-    pub fn get_string(&self, id: Id) -> String {
+    pub fn get_string(&self, id: Id) -> Result<String, TreeError> {
         let string_node_id = self
             .id_to_node
             .get(&id)
@@ -347,12 +353,12 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
                 _ => panic!("get_string called on non-string Id"),
             };
         }
-        string
+        Ok(string)
     }
 
     // TODO since untrusted code is going in here, should make invalid Ids return an error instead
-    pub fn insert_character(&mut self, append_id: Id, this_id: Id, character: char) {
-        let (node_id, string_index, id_list_index) = self.lookup_insertion_point(&append_id);
+    pub fn insert_character(&mut self, append_id: Id, this_id: Id, character: char) -> Result<(), TreeError> {
+        let (node_id, string_index, id_list_index) = self.lookup_insertion_point(&append_id)?;
         match &mut self.nodes[&node_id].data {
             NodeData::StringSegment { ids, contents, .. } => {
                 contents.insert(string_index, character);
@@ -367,11 +373,12 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             },
             _ => panic!("unknown object type!!"),
         }
+        Ok(())
     }
 
     // TODO since untrusted code is going in here, should make invalid Ids return an error instead
-    pub fn delete_character(&mut self, char_id: Id) {
-        let (node_id, id_list_index) = self.lookup_id_index(&char_id);
+    pub fn delete_character(&mut self, char_id: Id) -> Result<(), TreeError> {
+        let (node_id, id_list_index) = self.lookup_id_index(&char_id)?;
         match &mut self.nodes[&node_id].data {
             NodeData::StringSegment { ids, contents, .. } => {
                 if let Some(old_byte_index) = ids[id_list_index].1.take() {
@@ -385,6 +392,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             }
             _ => panic!("unknown object type!!"),
         }
+        Ok(())
     }
 }
 
@@ -409,35 +417,35 @@ mod test {
     #[test]
     fn simple_delete() {
         let mut tree = Tree::empty_string(MyId(0));
-        tree.insert_character(MyId(0), MyId(1), 'a');
-        assert_eq!(tree.get_string(MyId(0)), "a");
-        tree.insert_character(MyId(1), MyId(2), 'b');
-        assert_eq!(tree.get_string(MyId(0)), "ab");
-        tree.delete_character(MyId(1));
-        assert_eq!(tree.get_string(MyId(0)), "b");
+        tree.insert_character(MyId(0), MyId(1), 'a').unwrap();
+        assert_eq!(tree.get_string(MyId(0)), Ok("a".to_string()));
+        tree.insert_character(MyId(1), MyId(2), 'b').unwrap();
+        assert_eq!(tree.get_string(MyId(0)), Ok("ab".to_string()));
+        tree.delete_character(MyId(1)).unwrap();
+        assert_eq!(tree.get_string(MyId(0)), Ok("b".to_string()));
         // test delete same char; should be noop
-        tree.delete_character(MyId(1));
-        assert_eq!(tree.get_string(MyId(0)), "b");
-        tree.delete_character(MyId(2));
-        assert_eq!(tree.get_string(MyId(0)), "");
+        tree.delete_character(MyId(1)).unwrap();
+        assert_eq!(tree.get_string(MyId(0)), Ok("b".to_string()));
+        tree.delete_character(MyId(2)).unwrap();
+        assert_eq!(tree.get_string(MyId(0)), Ok("".to_string()));
     }
 
     #[test]
     fn insert_character() {
         let mut tree = Tree::empty_string(MyId(0));
-        tree.insert_character(MyId(0), MyId(1), 'a');
-        assert_eq!(tree.get_string(MyId(0)), "a");
-        tree.insert_character(MyId(1), MyId(2), 'b');
-        assert_eq!(tree.get_string(MyId(0)), "ab");
-        tree.insert_character(MyId(1), MyId(3), 'c');
-        assert_eq!(tree.get_string(MyId(0)), "acb");
-        tree.insert_character(MyId(0), MyId(4), 'd');
-        assert_eq!(tree.get_string(MyId(0)), "dacb");
+        tree.insert_character(MyId(0), MyId(1), 'a').unwrap();
+        assert_eq!(tree.get_string(MyId(0)), Ok("a".to_string()));
+        tree.insert_character(MyId(1), MyId(2), 'b').unwrap();
+        assert_eq!(tree.get_string(MyId(0)), Ok("ab".to_string()));
+        tree.insert_character(MyId(1), MyId(3), 'c').unwrap();
+        assert_eq!(tree.get_string(MyId(0)), Ok("acb".to_string()));
+        tree.insert_character(MyId(0), MyId(4), 'd').unwrap();
+        assert_eq!(tree.get_string(MyId(0)), Ok("dacb".to_string()));
         for i in 5..10000 {
-            tree.insert_character(MyId(i-1), MyId(i), num_to_char(i));
+            tree.insert_character(MyId(i-1), MyId(i), num_to_char(i)).unwrap();
         }
 
         let long_insert = (5..10000).map(|i| num_to_char(i)).collect::<String>();
-        assert_eq!(tree.get_string(MyId(0)), format!("d{}acb", long_insert));
+        assert_eq!(tree.get_string(MyId(0)), Ok(format!("d{}acb", long_insert)));
     }
 }
