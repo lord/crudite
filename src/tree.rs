@@ -183,12 +183,12 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     /// no-op.
     fn consider_join(&mut self, segment: usize) {
         let (segment_len, next) = match &self.nodes[&segment].data {
-            NodeData::StringSegment { contents, next, .. } => (contents.len(), *next),
+            NodeData::StringSegment { ids, next, .. } => (ids.len(), *next),
             NodeData::String { .. } => return, // abort if this is off the edge of a string
             _ => panic!("consider_join called on non-segment node"),
         };
         let next_len = match &self.nodes[&next].data {
-            NodeData::StringSegment { contents, .. } => contents.len(),
+            NodeData::StringSegment { ids, .. } => ids.len(),
             NodeData::String { .. } => return, // abort if this is off the edge of a string
             _ => panic!("consider_join called on non-segment node"),
         };
@@ -227,21 +227,16 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             NodeData::String { .. } => return, // abort if this is off the edge of a string
             _ => panic!("consider_split called on non-segment node"),
         };
-        let len = contents.len();
-        if len <= SPLIT_LEN {
+        if ids.len() <= SPLIT_LEN {
             return;
         }
         // the first index of the second segment. need to do this stuff to make sure we split
         // along a codepoint boundary
-        let (split_start_string, _) = contents
-            .char_indices()
-            .find(|(i, _)| *i >= len / 2)
-            .expect("somehow we failed to find a split point for the string.");
-        let (split_start_vec, _) = ids
-            .iter()
-            .enumerate()
-            .find(|(_, (_, byte_i))| *byte_i == Some(split_start_string))
-            .expect("somehow failed to find a split point for ids");
+        let split_start_vec = ids.len() / 2;
+        let split_start_string = ids.iter()
+            .skip(split_start_vec)
+            .find_map(|(_, byte_idx)| byte_idx.clone())
+            .unwrap_or(contents.len());
         let new_string = contents.split_off(split_start_string);
         let new_ids: Vec<(Id, Option<usize>)> = ids
             .split_off(split_start_vec)
@@ -370,7 +365,7 @@ mod test {
         }
     }
     #[test]
-    fn blah() {
+    fn insert_character() {
         let mut tree = Tree::empty_string(MyId(0));
         tree.insert_character(MyId(0), MyId(1), 'a');
         assert_eq!(tree.get_string(MyId(0)), "a");
