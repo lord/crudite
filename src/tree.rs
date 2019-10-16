@@ -343,6 +343,7 @@ impl<Id: Hash + Clone + Eq> Tree<Id> {
                 }
                 ids.insert(id_list_index, (this_id.clone(), Some(string_index)));
                 self.id_to_node.insert(this_id, node_id);
+                self.consider_split(node_id);
             },
             _ => panic!("unknown object type!!"),
         }
