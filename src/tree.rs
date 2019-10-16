@@ -8,14 +8,15 @@
 
 use im::{HashMap, Vector};
 use std::hash::Hash;
+use std::fmt::Debug;
 
 const JOIN_LEN: usize = 511;
 const SPLIT_LEN: usize = 1024;
 
 /// Tree represents a JSON-compatible document.
 type NodeId = usize;
-#[derive(Clone)]
-pub struct Tree<Id: Hash + Clone + Eq> {
+#[derive(Clone, Debug)]
+pub struct Tree<Id: Hash + Clone + Eq + Debug> {
     /// Number to use for the next node that is created.
     next_node: NodeId,
 
@@ -28,14 +29,14 @@ pub struct Tree<Id: Hash + Clone + Eq> {
     nodes: HashMap<NodeId, Node<Id>>,
 }
 
-#[derive(Clone)]
-struct Node<Id: Hash + Clone + Eq> {
+#[derive(Clone, Debug)]
+struct Node<Id: Hash + Clone + Eq + Debug> {
     data: NodeData<Id>,
     parent: Option<NodeId>,
 }
 
-#[derive(Clone)]
-enum NodeData<Id: Hash + Clone + Eq> {
+#[derive(Clone, Debug)]
+enum NodeData<Id: Hash + Clone + Eq + Debug> {
     // TODO once string is implemented, copy implementation for `Array`?
     True,
     False,
@@ -68,7 +69,7 @@ enum NodeData<Id: Hash + Clone + Eq> {
     },
 }
 
-impl<Id: Hash + Clone + Eq> Tree<Id> {
+impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     fn new(root_id: Id, root_node: NodeData<Id>) -> Self {
         let mut tree = Tree {
             next_node: 1,
@@ -97,6 +98,7 @@ impl<Id: Hash + Clone + Eq> Tree<Id> {
                 contents: String::new(),
             }
         });
+        tree.next_node += 1;
         tree
     }
 
@@ -163,7 +165,7 @@ impl<Id: Hash + Clone + Eq> Tree<Id> {
                 ids: Vec::new(),
             },
         };
-        self.nodes[&new_id] = node;
+        self.nodes.insert(new_id, node);
         match &mut self.nodes[&next].data {
             NodeData::StringSegment { prev, .. } => {
                 *prev = new_id;
@@ -350,10 +352,12 @@ impl<Id: Hash + Clone + Eq> Tree<Id> {
     }
 }
 
+// TODO should double check ids were not already taken?
+
 #[cfg(test)]
 mod test {
     use super::*;
-    #[derive(Clone, PartialEq, Eq, Hash)]
+    #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     struct MyId(usize);
     #[test]
     fn blah() {
@@ -366,5 +370,11 @@ mod test {
         assert_eq!(tree.get_string(MyId(0)), "acb");
         tree.insert_character(MyId(0), MyId(4), 'd');
         assert_eq!(tree.get_string(MyId(0)), "dacb");
+        for i in 5..10000 {
+            tree.insert_character(MyId(i-1), MyId(i), 'e');
+        }
+
+        let es = (5..10000).map(|_| "e").collect::<String>();
+        assert_eq!(tree.get_string(MyId(0)), format!("d{}acb", es));
     }
 }
