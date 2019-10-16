@@ -69,12 +69,35 @@ enum NodeData<Id: Hash + Clone + Eq> {
 }
 
 impl<Id: Hash + Clone + Eq> Tree<Id> {
-    pub fn new() -> Self {
-        Tree {
-            next_node: 0,
+    fn new(root_id: Id, root_node: NodeData<Id>) -> Self {
+        let mut tree = Tree {
+            next_node: 1,
             id_to_node: HashMap::new(),
             nodes: HashMap::new(),
-        }
+        };
+        tree.id_to_node.insert(root_id, 0);
+        tree.nodes.insert(0, Node {
+            parent: None,
+            data: root_node,
+        });
+        tree
+    }
+
+    pub fn empty_string(root_id: Id) -> Self {
+        let mut tree = Self::new(root_id, NodeData::String {
+            start: 1,
+            end: 1,
+        });
+        tree.nodes.insert(1, Node {
+            parent: Some(0),
+            data: NodeData::StringSegment {
+                next: 0,
+                prev: 0,
+                ids: vec![],
+                contents: String::new(),
+            }
+        });
+        tree
     }
 
     fn next_id(&mut self) -> usize {
@@ -277,9 +300,39 @@ impl<Id: Hash + Clone + Eq> Tree<Id> {
         panic!("id not found in segment id list");
     }
 
+    pub fn get_string(&self, id: Id) -> String {
+        let string_node_id = self
+            .id_to_node
+            .get(&id)
+            .expect("Id passed to get_string does not exist.");
+        let node = self
+            .nodes
+            .get(&string_node_id)
+            .expect("node_id listed in id_to_node did not exist.");
+        let mut next = match &node.data {
+            NodeData::String { start, .. } => *start,
+            _ => panic!("get_string called on non-string Id"),
+        };
+        let mut string = String::new();
+        while next != *string_node_id {
+            let node = self
+                .nodes
+                .get(&next)
+                .expect("node_id listed in segment adjacency did not exist.");
+            next = match &node.data {
+                NodeData::StringSegment { next, contents, .. } => {
+                    string.push_str(contents);
+                    *next
+                },
+                _ => panic!("get_string called on non-string Id"),
+            };
+        }
+        string
+    }
+
     // TODO since untrusted code is going in here, should make invalid Ids return an error instead
-    pub fn insert_character(&mut self, id: Id, character: char) {
-        let (node_id, string_index, id_list_index) = self.lookup_insertion_point(&id);
+    pub fn insert_character(&mut self, append_id: Id, this_id: Id, character: char) {
+        let (node_id, string_index, id_list_index) = self.lookup_insertion_point(&append_id);
         match &mut self.nodes[&node_id].data {
             NodeData::StringSegment { ids, contents, .. } => {
                 contents.insert(string_index, character);
@@ -288,7 +341,8 @@ impl<Id: Hash + Clone + Eq> Tree<Id> {
                         *index += character.len_utf8();
                     }
                 }
-                ids.insert(id_list_index, (id, Some(string_index)));
+                ids.insert(id_list_index, (this_id.clone(), Some(string_index)));
+                self.id_to_node.insert(this_id, node_id);
             },
             _ => panic!("unknown object type!!"),
         }
@@ -297,7 +351,15 @@ impl<Id: Hash + Clone + Eq> Tree<Id> {
 
 #[cfg(test)]
 mod test {
+    use super::*;
+    #[derive(Clone, PartialEq, Eq, Hash)]
+    struct MyId(usize);
     #[test]
-    fn merge_leaves() {
+    fn blah() {
+        let mut tree = Tree::empty_string(MyId(0));
+        tree.insert_character(MyId(0), MyId(1), 'a');
+        assert_eq!(tree.get_string(MyId(0)), "a");
+        tree.insert_character(MyId(1), MyId(2), 'b');
+        assert_eq!(tree.get_string(MyId(0)), "ab");
     }
 }
