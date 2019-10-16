@@ -269,14 +269,14 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         let node_id = self
             .id_to_node
             .get(&lookup_id)
-            .expect("Id passed to lookup_character does not exist.");
+            .ok_or(TreeError::UnknownId)?;
         let node = self
             .nodes
             .get(&node_id)
             .expect("node_id listed in id_to_node did not exist.");
         let ids = match &node.data {
             NodeData::StringSegment { ids, .. } => ids,
-            _ => panic!("lookup_character called on non-character Id"),
+            _ => return Err(TreeError::InvalidNodeType),
         };
 
         for (i, (id, string_index_opt)) in ids.iter().enumerate() {
@@ -295,7 +295,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         let node_id = self
             .id_to_node
             .get(&lookup_id)
-            .expect("Id passed to lookup_character does not exist.");
+            .ok_or(TreeError::UnknownId)?;
         let node = self
             .nodes
             .get(&node_id)
@@ -304,7 +304,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             NodeData::StringSegment { ids, contents, .. } => (ids, contents),
             // if Id is a string, this char corresponds with the first index in the first segment
             NodeData::String { start, .. } => return Ok((*start, 0, 0)),
-            _ => panic!("lookup_character called on non-character Id"),
+            _ => return Err(TreeError::InvalidNodeType),
         };
 
         let mut id_list_index_opt = None;
