@@ -20,9 +20,11 @@ pub enum TreeError {
     DuplicateId,
 }
 
-/// Tree represents a JSON-compatible document.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 struct NodeId(usize);
+
+/// A JSON-compatible document where each character and value in the document has a unique ID, and
+/// deletions maintain tombstones for ordering future insertions.
 #[derive(Clone, Debug)]
 pub struct Tree<Id: Hash + Clone + Eq + Debug> {
     /// Number to use for the next node that is created.
