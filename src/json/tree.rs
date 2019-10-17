@@ -1,6 +1,7 @@
 use im::HashMap;
 use std::fmt::Debug;
 use std::hash::Hash;
+use super::value::ValueType;
 
 const JOIN_LEN: usize = 511;
 const SPLIT_LEN: usize = 1024;
@@ -10,18 +11,6 @@ pub enum TreeError {
     UnknownId,
     UnexpectedNodeType,
     DuplicateId,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ValueType {
-    String,
-    Character,
-    True,
-    False,
-    Null,
-    Object,
-    Array,
-    ArrayEntry,
 }
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -319,7 +308,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         let (parent, prev, next) = match &mut self.nodes[&append_to] {
             Node {
                 parent,
-                data: NodeData::StringSegment { prev, next, .. },
+                data: NodeData::StringSegment { next, .. },
             } => {
                 let old_next = *next;
                 *next = new_id;
@@ -451,7 +440,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             _ => return Err(TreeError::UnexpectedNodeType),
         };
 
-        for (i, (id, string_index_opt)) in ids.iter().enumerate() {
+        for (i, (id, _)) in ids.iter().enumerate() {
             if id == lookup_id {
                 return Ok((*node_id, i));
                 // don't check for string index until next iteration of loop; we want the *next*
