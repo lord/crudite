@@ -260,19 +260,30 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     // TODO right now this is last-write-wins, could modify the object NodeData pretty lightly and
     // get multi value registers which would be sick
     /// Moves `value` to `object[key]`. Since this recursively traverses the children of `object`
-    /// it has `O(n log n)` worse case time.
-    pub fn object_assign(&mut self, object: Id, key: String, value: Id) -> Result<(), TreeError> {
+    /// it has `O(n log n)` worse case time. If `value` is `None`, the key is deleted.
+    pub fn object_assign(&mut self, object: Id, key: String, value: Option<Id>) -> Result<(), TreeError> {
         let object_node_id = *self.id_to_node.get(&object).ok_or(TreeError::UnknownId)?;
-        let value_node_id = *self.id_to_node.get(&value).ok_or(TreeError::UnknownId)?;
+        let value_node_id = if let Some(value) = value {
+            Some(*self.id_to_node.get(&value).ok_or(TreeError::UnknownId)?)
+        } else {
+            None
+        };
         match &mut self.nodes[&object_node_id].data {
             NodeData::Object { items, id: _ } => {
-                if let Some(old_id) = items.insert(key, value_node_id) {
+                let old = if let Some(value_node_id) = value_node_id {
+                    items.insert(key, value_node_id)
+                } else {
+                    items.remove(&key)
+                };
+                if let Some(old_id) = old {
                     self.delete(old_id);
                 }
             }
             _ => return Err(TreeError::UnexpectedNodeType),
         }
-        self.nodes[&value_node_id].parent = Some(object_node_id);
+        if let Some(value_node_id) = value_node_id {
+            self.nodes[&value_node_id].parent = Some(object_node_id);
+        }
         Ok(())
     }
 
@@ -610,10 +621,10 @@ mod test {
         let mut tree = Tree::new_with_object_root(MyId(0));
 
         tree.construct_object(MyId(1)).unwrap();
-        tree.object_assign(MyId(0), "my key".to_string(), MyId(1));
+        tree.object_assign(MyId(0), "my key".to_string(), Some(MyId(1)));
 
         tree.construct_string(MyId(2)).unwrap();
-        tree.object_assign(MyId(1), "my key 2".to_string(), MyId(2));
+        tree.object_assign(MyId(1), "my key 2".to_string(), Some(MyId(2)));
 
         tree.insert_character(MyId(2), MyId(3), 'a');
 
@@ -626,7 +637,7 @@ mod test {
         assert_eq!(Ok(ValueType::Character), tree.get_type(MyId(3)));
 
         tree.construct_bool(MyId(4), true).unwrap();
-        tree.object_assign(MyId(0), "my key".to_string(), MyId(4));
+        tree.object_assign(MyId(0), "my key".to_string(), Some(MyId(4)));
 
         // {"my key": true}
         // ^          ^
@@ -636,6 +647,17 @@ mod test {
         assert_eq!(Err(TreeError::UnknownId), tree.get_type(MyId(2)));
         assert_eq!(Err(TreeError::UnknownId), tree.get_type(MyId(3)));
         assert_eq!(Ok(ValueType::True), tree.get_type(MyId(4)));
+
+        tree.object_assign(MyId(0), "my key".to_string(), None);
+
+        // {}
+        // ^
+        // 0
+        assert_eq!(Ok(ValueType::Object), tree.get_type(MyId(0)));
+        assert_eq!(Err(TreeError::UnknownId), tree.get_type(MyId(1)));
+        assert_eq!(Err(TreeError::UnknownId), tree.get_type(MyId(2)));
+        assert_eq!(Err(TreeError::UnknownId), tree.get_type(MyId(3)));
+        assert_eq!(Err(TreeError::UnknownId), tree.get_type(MyId(4)));
     }
 
     #[test]
