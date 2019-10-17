@@ -32,8 +32,8 @@ struct NodeId(usize);
 ///
 /// A JSON-compatible document where each character and value in the document has a unique ID, and
 /// deletions in arrays and strings maintain tombstones for ordering future insertions. All methods
-/// on this tree should be `O(log n)` or better. The tree also internally uses persistent data
-/// structures, so cloning should be a very fast and efficient operation.
+/// on this tree should be `O(log n)` or better unless otherwise noted. The tree also internally
+/// uses persistent data structures, so cloning should be a very fast and efficient operation.
 ///
 /// Sequences like arrays and strings in `Tree` are represented by a persistent double linked list
 /// of segments. This is sorta like just the leaves of a rope connected by a doubly linked list.
@@ -259,7 +259,8 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
 
     // TODO right now this is last-write-wins, could modify the object NodeData pretty lightly and
     // get multi value registers which would be sick
-    /// Moves `value` to `object[key]`.
+    /// Moves `value` to `object[key]`. Since this recursively traverses the children of `object`
+    /// it has `O(n log n)` worse case time.
     pub fn object_assign(&mut self, object: Id, key: String, value: Id) -> Result<(), TreeError> {
         let object_node_id = *self.id_to_node.get(&object).ok_or(TreeError::UnknownId)?;
         let value_node_id = *self.id_to_node.get(&value).ok_or(TreeError::UnknownId)?;
