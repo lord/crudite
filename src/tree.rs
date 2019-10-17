@@ -532,6 +532,7 @@ mod test {
         let mut tree = Tree::new_with_object_root(MyId(0));
         tree.construct_null(MyId(1)).unwrap();
         tree.object_assign(MyId(0), "my key".to_string(), MyId(1));
+        // TODO create more children, nested, and validate that they are deleted
     }
 
     #[test]
