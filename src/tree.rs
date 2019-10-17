@@ -6,7 +6,7 @@
 //! overhead for calculating the rope. We opt instead to make indexed access `O(n)` and ID-based
 //! access `O(1)` by using a linked list.
 
-use im::{HashMap, HashSet};
+use im::HashMap;
 use std::fmt::Debug;
 use std::hash::Hash;
 
@@ -100,23 +100,42 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         tree
     }
 
-    pub fn construct_string(&mut self, id: Id) -> Result<(), TreeError> {
+    fn construct_simple(&mut self, id: Id, node_data: NodeData<Id>) -> Result<NodeId, TreeError> {
         if self.id_to_node.contains_key(&id) {
             return Err(TreeError::DuplicateId);
         }
-        let string_id = self.next_id();
-        let segment_id = self.next_id();
-        self.id_to_node.insert(id, string_id);
+        let node_id = self.next_id();
+        self.id_to_node.insert(id, node_id);
         self.nodes.insert(
-            string_id,
+            node_id,
             Node {
                 parent: None,
-                data: NodeData::String {
-                    start: segment_id,
-                    end: segment_id,
-                },
+                data: node_data,
             },
         );
+        Ok(node_id)
+    }
+
+    pub fn construct_bool(&mut self, id: Id, val: bool) -> Result<(), TreeError> {
+        self.construct_simple(id, if val {NodeData::True} else {NodeData::False}).map(|_| ())
+    }
+
+    pub fn construct_null(&mut self, id: Id, val: bool) -> Result<(), TreeError> {
+        self.construct_simple(id, NodeData::Null).map(|_| ())
+    }
+
+    pub fn construct_object(&mut self, id: Id, val: bool) -> Result<(), TreeError> {
+        self.construct_simple(id, NodeData::Object {
+            items: HashMap::new(),
+        }).map(|_| ())
+    }
+
+    pub fn construct_string(&mut self, id: Id) -> Result<(), TreeError> {
+        let segment_id = self.next_id();
+        let string_id = self.construct_simple(id, NodeData::String {
+            start: segment_id,
+            end: segment_id,
+        })?;
         self.nodes.insert(
             segment_id,
             Node {
