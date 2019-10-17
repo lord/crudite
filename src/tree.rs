@@ -83,6 +83,8 @@ enum NodeData<Id: Hash + Clone + Eq + Debug> {
 }
 
 impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
+    /// This is private since it constructs a tree with no root value; use one of the public
+    /// constructors to create the `Tree` instead.
     fn new(root_id: Id) -> Self {
         Tree {
             next_node: NodeId(0),
@@ -105,14 +107,28 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         let string_id = self.next_id();
         let segment_id = self.next_id();
         self.id_to_node.insert(id, string_id);
-        self.nodes.insert(string_id, Node {
-            parent: None,
-            data: NodeData::String { start: segment_id, end: segment_id },
-        });
-        self.nodes.insert(segment_id, Node {
-            parent: Some(string_id),
-            data: NodeData::StringSegment { contents: "".to_string(), ids: vec![], prev: string_id, next: string_id },
-        });
+        self.nodes.insert(
+            string_id,
+            Node {
+                parent: None,
+                data: NodeData::String {
+                    start: segment_id,
+                    end: segment_id,
+                },
+            },
+        );
+        self.nodes.insert(
+            segment_id,
+            Node {
+                parent: Some(string_id),
+                data: NodeData::StringSegment {
+                    contents: "".to_string(),
+                    ids: vec![],
+                    prev: string_id,
+                    next: string_id,
+                },
+            },
+        );
         Ok(())
     }
 
