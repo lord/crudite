@@ -6,7 +6,7 @@
 //! overhead for calculating the rope. We opt instead to make indexed access `O(n)` and ID-based
 //! access `O(1)` by using a linked list.
 
-use im::{HashMap, Vector};
+use im::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::hash::Hash;
 
@@ -29,6 +29,9 @@ struct NodeId(usize);
 pub struct Tree<Id: Hash + Clone + Eq + Debug> {
     /// Number to use for the next node that is created.
     next_node: NodeId,
+
+    /// Id of the root object of the tree
+    root: Id,
 
     /// Maps external IDs to their position in the tree. In the case of Segments of a sequence,
     /// futher disambiguation may be necessary to find the exact character this represents within
@@ -80,39 +83,37 @@ enum NodeData<Id: Hash + Clone + Eq + Debug> {
 }
 
 impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
-    fn new(root_id: Id, root_node: NodeData<Id>) -> Self {
-        let mut tree = Tree {
-            next_node: NodeId(1),
+    fn new(root_id: Id) -> Self {
+        Tree {
+            next_node: NodeId(0),
             id_to_node: HashMap::new(),
             nodes: HashMap::new(),
-        };
-        tree.id_to_node.insert(root_id, NodeId(0));
-        tree.nodes.insert(
-            NodeId(0),
-            Node {
-                parent: None,
-                data: root_node,
-            },
-        );
-        tree
+            root: root_id,
+        }
     }
 
     pub fn empty_string(root_id: Id) -> Self {
-        let mut tree = Self::new(root_id, NodeData::String { start: NodeId(1), end: NodeId(1) });
-        tree.nodes.insert(
-            NodeId(1),
-            Node {
-                parent: Some(NodeId(0)),
-                data: NodeData::StringSegment {
-                    next: NodeId(0),
-                    prev: NodeId(0),
-                    ids: vec![],
-                    contents: String::new(),
-                },
-            },
-        );
-        tree.next_node.0 += 1;
+        let mut tree = Self::new(root_id.clone());
+        tree.construct_string(root_id).unwrap();
         tree
+    }
+
+    pub fn construct_string(&mut self, id: Id) -> Result<(), TreeError> {
+        if self.id_to_node.contains_key(&id) {
+            return Err(TreeError::DuplicateId);
+        }
+        let string_id = self.next_id();
+        let segment_id = self.next_id();
+        self.id_to_node.insert(id, string_id);
+        self.nodes.insert(string_id, Node {
+            parent: None,
+            data: NodeData::String { start: segment_id, end: segment_id },
+        });
+        self.nodes.insert(segment_id, Node {
+            parent: Some(string_id),
+            data: NodeData::StringSegment { contents: "".to_string(), ids: vec![], prev: string_id, next: string_id },
+        });
+        Ok(())
     }
 
     fn next_id(&mut self) -> NodeId {
