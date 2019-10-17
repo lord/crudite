@@ -1,11 +1,3 @@
-//! ## Sequences
-//! Sequences like arrays and strings in crudite are represented by a persistent double linked list
-//! of segments. This is sorta like just the leaves of a rope connected by a doubly linked list.
-//! Why not use a rope? Ropes are useful for calculating "what character is at position n" very
-//! efficiently. However, it's tricky to make ropes work with random access via IDs, and there is
-//! overhead for calculating the rope. We opt instead to make indexed access `O(n)` and ID-based
-//! access `O(1)` by using a linked list.
-
 use im::HashMap;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -23,8 +15,20 @@ pub enum TreeError {
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 struct NodeId(usize);
 
+/// This struct is left public for others who would like to build their own CRDT library or have a
+/// custom setup of some kind. Most crudite users will not need to use this.
+///
 /// A JSON-compatible document where each character and value in the document has a unique ID, and
-/// deletions maintain tombstones for ordering future insertions.
+/// deletions in arrays and strings maintain tombstones for ordering future insertions. All methods
+/// on this tree should be `O(log n)` or better. The tree also internally uses persistent data
+/// structures, so cloning should be a very fast and efficient operation.
+///
+/// Sequences like arrays and strings in `Tree` are represented by a persistent double linked list
+/// of segments. This is sorta like just the leaves of a rope connected by a doubly linked list.
+/// Why not use a rope? Ropes are useful for calculating "what character is at position n" very
+/// efficiently. However, it's tricky to make ropes work with random access via IDs, and there is
+/// overhead for calculating the rope. We opt instead to make indexed access `O(n)` and ID-based
+/// access `O(1)`.
 #[derive(Clone, Debug)]
 pub struct Tree<Id: Hash + Clone + Eq + Debug> {
     /// Number to use for the next node that is created.
