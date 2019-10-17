@@ -518,6 +518,26 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         }
     }
 
+    pub fn get_parent(&self, id: Id) -> Result<Option<Id>, TreeError> {
+        let node_id = self
+            .id_to_node
+            .get(&id)
+            .ok_or(TreeError::UnknownId)?;
+        let node = self
+            .nodes
+            .get(&node_id)
+            .expect("node_id listed in id_to_node did not exist.");
+        let parent_id = match node.parent {
+            None => return Ok(None),
+            Some(v) => v,
+        };
+        let parent = self
+            .nodes
+            .get(&parent_id)
+            .expect("node_id listed in id_to_node did not exist.");
+        Ok(Some(id_of_node(parent).expect("parent of node was a string segment somehow")))
+    }
+
     pub fn get_string(&self, id: Id) -> Result<String, TreeError> {
         let string_node_id = self
             .id_to_node
@@ -600,6 +620,17 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     }
 }
 
+fn id_of_node<Id: Hash + Clone + Eq + Debug>(node: &Node<Id>) -> Option<Id> {
+    match &node.data {
+        NodeData::String {id, ..} => Some(id.clone()),
+        NodeData::Object {id, ..} => Some(id.clone()),
+        NodeData::Null {id, ..} => Some(id.clone()),
+        NodeData::True {id, ..} => Some(id.clone()),
+        NodeData::False {id, ..} => Some(id.clone()),
+        NodeData::StringSegment {..} => None,
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -620,6 +651,12 @@ mod test {
     fn object_assignment() {
         let mut tree = Tree::new_with_object_root(MyId(0));
 
+        // {}
+        // ^
+        // 0
+        assert_eq!(Ok(ValueType::Object), tree.get_type(MyId(0)));
+        assert_eq!(Ok(None), tree.get_parent(MyId(0)));
+
         tree.construct_object(MyId(1)).unwrap();
         tree.object_assign(MyId(0), "my key".to_string(), Some(MyId(1)));
 
@@ -635,6 +672,10 @@ mod test {
         assert_eq!(Ok(ValueType::Object), tree.get_type(MyId(1)));
         assert_eq!(Ok(ValueType::String), tree.get_type(MyId(2)));
         assert_eq!(Ok(ValueType::Character), tree.get_type(MyId(3)));
+        assert_eq!(Ok(None), tree.get_parent(MyId(0)));
+        assert_eq!(Ok(Some(MyId(0))), tree.get_parent(MyId(1)));
+        assert_eq!(Ok(Some(MyId(1))), tree.get_parent(MyId(2)));
+        assert_eq!(Ok(Some(MyId(2))), tree.get_parent(MyId(3)));
 
         tree.construct_bool(MyId(4), true).unwrap();
         tree.object_assign(MyId(0), "my key".to_string(), Some(MyId(4)));
@@ -647,6 +688,11 @@ mod test {
         assert_eq!(Err(TreeError::UnknownId), tree.get_type(MyId(2)));
         assert_eq!(Err(TreeError::UnknownId), tree.get_type(MyId(3)));
         assert_eq!(Ok(ValueType::True), tree.get_type(MyId(4)));
+        assert_eq!(Ok(None), tree.get_parent(MyId(0)));
+        assert_eq!(Err(TreeError::UnknownId), tree.get_parent(MyId(1)));
+        assert_eq!(Err(TreeError::UnknownId), tree.get_parent(MyId(2)));
+        assert_eq!(Err(TreeError::UnknownId), tree.get_parent(MyId(3)));
+        assert_eq!(Ok(Some(MyId(0))), tree.get_parent(MyId(4)));
 
         tree.object_assign(MyId(0), "my key".to_string(), None);
 
