@@ -117,7 +117,8 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     }
 
     pub fn construct_bool(&mut self, id: Id, val: bool) -> Result<(), TreeError> {
-        self.construct_simple(id, if val {NodeData::True} else {NodeData::False}).map(|_| ())
+        self.construct_simple(id, if val { NodeData::True } else { NodeData::False })
+            .map(|_| ())
     }
 
     pub fn construct_null(&mut self, id: Id, val: bool) -> Result<(), TreeError> {
@@ -125,17 +126,24 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     }
 
     pub fn construct_object(&mut self, id: Id, val: bool) -> Result<(), TreeError> {
-        self.construct_simple(id, NodeData::Object {
-            items: HashMap::new(),
-        }).map(|_| ())
+        self.construct_simple(
+            id,
+            NodeData::Object {
+                items: HashMap::new(),
+            },
+        )
+        .map(|_| ())
     }
 
     pub fn construct_string(&mut self, id: Id) -> Result<(), TreeError> {
         let segment_id = self.next_id();
-        let string_id = self.construct_simple(id, NodeData::String {
-            start: segment_id,
-            end: segment_id,
-        })?;
+        let string_id = self.construct_simple(
+            id,
+            NodeData::String {
+                start: segment_id,
+                end: segment_id,
+            },
+        )?;
         self.nodes.insert(
             segment_id,
             Node {
@@ -161,7 +169,11 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     /// `delete_segment`.
     fn delete(&mut self, item: NodeId) {
         match self.nodes[&item].data {
-            NodeData::True | NodeData::False | NodeData::Null | NodeData::Object {..} | NodeData::String {..} => { /* do nothing */ },
+            NodeData::True
+            | NodeData::False
+            | NodeData::Null
+            | NodeData::Object { .. }
+            | NodeData::String { .. } => { /* do nothing */ }
             _ => panic!("attempted to delete invalid type"),
         }
         let mut queue = vec![item];
@@ -174,15 +186,15 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
                 NodeData::True | NodeData::False | NodeData::Null => {
                     // do nothing
                 }
-                NodeData::Object {items} => {
+                NodeData::Object { items } => {
                     for (_, id) in items {
                         queue.push(id);
                     }
                 }
-                NodeData::String {start, ..} => {
+                NodeData::String { start, .. } => {
                     queue.push(start);
                 }
-                NodeData::StringSegment {next, ..} => {
+                NodeData::StringSegment { next, .. } => {
                     queue.push(next);
                 }
             }
