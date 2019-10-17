@@ -94,9 +94,15 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         }
     }
 
-    pub fn empty_string(root_id: Id) -> Self {
+    pub fn new_with_string_root(root_id: Id) -> Self {
         let mut tree = Self::new(root_id.clone());
         tree.construct_string(root_id).unwrap();
+        tree
+    }
+
+    pub fn new_with_object_root(root_id: Id) -> Self {
+        let mut tree = Self::new(root_id.clone());
+        tree.construct_object(root_id).unwrap();
         tree
     }
 
@@ -121,11 +127,11 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             .map(|_| ())
     }
 
-    pub fn construct_null(&mut self, id: Id, val: bool) -> Result<(), TreeError> {
+    pub fn construct_null(&mut self, id: Id) -> Result<(), TreeError> {
         self.construct_simple(id, NodeData::Null).map(|_| ())
     }
 
-    pub fn construct_object(&mut self, id: Id, val: bool) -> Result<(), TreeError> {
+    pub fn construct_object(&mut self, id: Id) -> Result<(), TreeError> {
         self.construct_simple(
             id,
             NodeData::Object {
@@ -201,17 +207,27 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         }
     }
 
-    // fn object_assign(&mut self, object: Id, key: String, value: Id) {
-    //     let node_id = self
-    //         .id_to_node
-    //         .get(&lookup_id)
-    //         .ok_or(TreeError::UnknownId)?;
-    //     match self.nodes[node_id].data {
-    //         NodeData::Object {items} => {
-    //         }
-    //         _ => return Err(TreeError::UnexpectedNodeType),
-    //     }
-    // }
+    // TODO right now this is last-write-wins, could modify the object NodeData pretty lightly and
+    // get multi value registers which would be sick
+    pub fn object_assign(&mut self, object: Id, key: String, value: Id) -> Result<(), TreeError> {
+        let object_node_id = self
+            .id_to_node
+            .get(&object)
+            .ok_or(TreeError::UnknownId)?;
+        let value_node_id = self
+            .id_to_node
+            .get(&value)
+            .ok_or(TreeError::UnknownId)?;
+        match &mut self.nodes[object_node_id].data {
+            NodeData::Object {items} => {
+                if let Some(old_id) = items.insert(key, *value_node_id) {
+                    self.delete(old_id);
+                }
+            }
+            _ => return Err(TreeError::UnexpectedNodeType),
+        }
+        Ok(())
+    }
 
     /// Deletes a segment with node id `usize`, returns deleted NodeData and new Tree. Caller is
     /// responsible for updating `id_to_node`, but this takes care of updating `next`, `prev`, or
@@ -518,7 +534,7 @@ mod test {
 
     #[test]
     fn invalid_ids_error() {
-        let mut tree = Tree::empty_string(MyId(0));
+        let mut tree = Tree::new_with_string_root(MyId(0));
         assert_eq!(tree.insert_character(MyId(0), MyId(1), 'a'), Ok(()));
         assert_eq!(
             tree.insert_character(MyId(0), MyId(1), 'a'),
@@ -541,7 +557,7 @@ mod test {
 
     #[test]
     fn simple_delete() {
-        let mut tree = Tree::empty_string(MyId(0));
+        let mut tree = Tree::new_with_string_root(MyId(0));
         tree.insert_character(MyId(0), MyId(1), 'a').unwrap();
         assert_eq!(tree.get_string(MyId(0)), Ok("a".to_string()));
         tree.insert_character(MyId(1), MyId(2), 'b').unwrap();
@@ -557,7 +573,7 @@ mod test {
 
     #[test]
     fn insert_character() {
-        let mut tree = Tree::empty_string(MyId(0));
+        let mut tree = Tree::new_with_string_root(MyId(0));
         tree.insert_character(MyId(0), MyId(1), 'a').unwrap();
         assert_eq!(tree.get_string(MyId(0)), Ok("a".to_string()));
         tree.insert_character(MyId(1), MyId(2), 'b').unwrap();
