@@ -538,18 +538,18 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         Ok(Some(id_of_node(parent).expect("parent of node was a string segment somehow")))
     }
 
-    pub fn get_string(&self, id: Id) -> Result<String, TreeError> {
+    fn debug_get_string(&self, id: Id) -> Result<String, TreeError> {
         let string_node_id = self
             .id_to_node
             .get(&id)
-            .expect("Id passed to get_string does not exist.");
+            .expect("Id passed to debug_get_string does not exist.");
         let node = self
             .nodes
             .get(&string_node_id)
             .expect("node_id listed in id_to_node did not exist.");
         let mut next = match &node.data {
             NodeData::String { start, .. } => *start,
-            _ => panic!("get_string called on non-string Id"),
+            _ => panic!("debug_get_string called on non-string Id"),
         };
         let mut string = String::new();
         while next != *string_node_id {
@@ -562,7 +562,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
                     string.push_str(contents);
                     *next
                 }
-                _ => panic!("get_string called on non-string Id"),
+                _ => panic!("debug_get_string called on non-string Id"),
             };
         }
         Ok(string)
@@ -733,35 +733,35 @@ mod test {
     fn simple_delete() {
         let mut tree = Tree::new_with_string_root(MyId(0));
         tree.insert_character(MyId(0), MyId(1), 'a').unwrap();
-        assert_eq!(tree.get_string(MyId(0)), Ok("a".to_string()));
+        assert_eq!(tree.debug_get_string(MyId(0)), Ok("a".to_string()));
         tree.insert_character(MyId(1), MyId(2), 'b').unwrap();
-        assert_eq!(tree.get_string(MyId(0)), Ok("ab".to_string()));
+        assert_eq!(tree.debug_get_string(MyId(0)), Ok("ab".to_string()));
         tree.delete_character(MyId(1)).unwrap();
-        assert_eq!(tree.get_string(MyId(0)), Ok("b".to_string()));
+        assert_eq!(tree.debug_get_string(MyId(0)), Ok("b".to_string()));
         // test delete same char; should be noop
         tree.delete_character(MyId(1)).unwrap();
-        assert_eq!(tree.get_string(MyId(0)), Ok("b".to_string()));
+        assert_eq!(tree.debug_get_string(MyId(0)), Ok("b".to_string()));
         tree.delete_character(MyId(2)).unwrap();
-        assert_eq!(tree.get_string(MyId(0)), Ok("".to_string()));
+        assert_eq!(tree.debug_get_string(MyId(0)), Ok("".to_string()));
     }
 
     #[test]
     fn insert_character() {
         let mut tree = Tree::new_with_string_root(MyId(0));
         tree.insert_character(MyId(0), MyId(1), 'a').unwrap();
-        assert_eq!(tree.get_string(MyId(0)), Ok("a".to_string()));
+        assert_eq!(tree.debug_get_string(MyId(0)), Ok("a".to_string()));
         tree.insert_character(MyId(1), MyId(2), 'b').unwrap();
-        assert_eq!(tree.get_string(MyId(0)), Ok("ab".to_string()));
+        assert_eq!(tree.debug_get_string(MyId(0)), Ok("ab".to_string()));
         tree.insert_character(MyId(1), MyId(3), 'c').unwrap();
-        assert_eq!(tree.get_string(MyId(0)), Ok("acb".to_string()));
+        assert_eq!(tree.debug_get_string(MyId(0)), Ok("acb".to_string()));
         tree.insert_character(MyId(0), MyId(4), 'd').unwrap();
-        assert_eq!(tree.get_string(MyId(0)), Ok("dacb".to_string()));
+        assert_eq!(tree.debug_get_string(MyId(0)), Ok("dacb".to_string()));
         for i in 5..10000 {
             tree.insert_character(MyId(i - 1), MyId(i), num_to_char(i))
                 .unwrap();
         }
 
         let long_insert = (5..10000).map(|i| num_to_char(i)).collect::<String>();
-        assert_eq!(tree.get_string(MyId(0)), Ok(format!("d{}acb", long_insert)));
+        assert_eq!(tree.debug_get_string(MyId(0)), Ok(format!("d{}acb", long_insert)));
     }
 }
