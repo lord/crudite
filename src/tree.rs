@@ -131,12 +131,20 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     }
 
     pub fn construct_bool(&mut self, id: Id, val: bool) -> Result<(), TreeError> {
-        self.construct_simple(id.clone(), if val { NodeData::True { id } } else { NodeData::False { id } })
-            .map(|_| ())
+        self.construct_simple(
+            id.clone(),
+            if val {
+                NodeData::True { id }
+            } else {
+                NodeData::False { id }
+            },
+        )
+        .map(|_| ())
     }
 
     pub fn construct_null(&mut self, id: Id) -> Result<(), TreeError> {
-        self.construct_simple(id.clone(), NodeData::Null { id }).map(|_| ())
+        self.construct_simple(id.clone(), NodeData::Null { id })
+            .map(|_| ())
     }
 
     pub fn construct_object(&mut self, id: Id) -> Result<(), TreeError> {
@@ -185,9 +193,9 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     /// `delete_segment`.
     fn delete(&mut self, item: NodeId) {
         match self.nodes[&item].data {
-            NodeData::True {..}
-            | NodeData::False {..}
-            | NodeData::Null {..}
+            NodeData::True { .. }
+            | NodeData::False { .. }
+            | NodeData::Null { .. }
             | NodeData::Object { .. }
             | NodeData::String { .. } => { /* do nothing */ }
             _ => panic!("attempted to delete invalid type"),
