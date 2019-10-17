@@ -16,7 +16,7 @@ const SPLIT_LEN: usize = 1024;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TreeError {
     UnknownId,
-    InvalidNodeType,
+    UnexpectedNodeType,
     DuplicateId,
 }
 
@@ -156,6 +156,18 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         self.next_node.0 += 1;
         res
     }
+
+    // fn object_assign(&mut self, object: Id, key: String, value: Id) {
+    //     let node_id = self
+    //         .id_to_node
+    //         .get(&lookup_id)
+    //         .ok_or(TreeError::UnknownId)?;
+    //     match self.nodes[node_id].data {
+    //         NodeData::Object {items} => {
+    //         }
+    //         _ => return Err(TreeError::UnexpectedNodeType),
+    //     }
+    // }
 
     /// Deletes a segment with node id `usize`, returns deleted NodeData and new Tree. Caller is
     /// responsible for updating `id_to_node`, but this takes care of updating `next`, `prev`, or
@@ -318,7 +330,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             .expect("node_id listed in id_to_node did not exist.");
         let ids = match &node.data {
             NodeData::StringSegment { ids, .. } => ids,
-            _ => return Err(TreeError::InvalidNodeType),
+            _ => return Err(TreeError::UnexpectedNodeType),
         };
 
         for (i, (id, string_index_opt)) in ids.iter().enumerate() {
@@ -346,7 +358,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             NodeData::StringSegment { ids, contents, .. } => (ids, contents),
             // if Id is a string, this char corresponds with the first index in the first segment
             NodeData::String { start, .. } => return Ok((*start, 0, 0)),
-            _ => return Err(TreeError::InvalidNodeType),
+            _ => return Err(TreeError::UnexpectedNodeType),
         };
 
         let mut id_list_index_opt = None;
@@ -479,7 +491,7 @@ mod test {
         assert_eq!(tree.delete_character(MyId(2)), Err(TreeError::UnknownId));
         assert_eq!(
             tree.delete_character(MyId(0)),
-            Err(TreeError::InvalidNodeType)
+            Err(TreeError::UnexpectedNodeType)
         );
     }
 
