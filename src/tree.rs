@@ -12,6 +12,18 @@ pub enum TreeError {
     DuplicateId,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ValueType {
+    String,
+    Character,
+    True,
+    False,
+    Null,
+    Object,
+    Array,
+    ArrayEntry,
+}
+
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 struct NodeId(usize);
 
@@ -106,12 +118,14 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         }
     }
 
+    /// Creates a new `Tree` representing an empty string.
     pub fn new_with_string_root(root_id: Id) -> Self {
         let mut tree = Self::new(root_id.clone());
         tree.construct_string(root_id).unwrap();
         tree
     }
 
+    /// Creates a new `Tree` representing an empty object.
     pub fn new_with_object_root(root_id: Id) -> Self {
         let mut tree = Self::new(root_id.clone());
         tree.construct_object(root_id).unwrap();
@@ -134,6 +148,8 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         Ok(node_id)
     }
 
+    /// Constructs a new bool value within the `Tree`. Newly constructed values have no parent or
+    /// place in the tree until placed with an `assign` call.
     pub fn construct_bool(&mut self, id: Id, val: bool) -> Result<(), TreeError> {
         self.construct_simple(
             id.clone(),
@@ -146,11 +162,15 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         .map(|_| ())
     }
 
+    /// Constructs a new null value within the `Tree`. Newly constructed values have no parent or
+    /// place in the tree until placed with an `assign` call.
     pub fn construct_null(&mut self, id: Id) -> Result<(), TreeError> {
         self.construct_simple(id.clone(), NodeData::Null { id })
             .map(|_| ())
     }
 
+    /// Constructs a new empty object within the `Tree`. Newly constructed values have no parent or
+    /// place in the tree until placed with an `assign` call.
     pub fn construct_object(&mut self, id: Id) -> Result<(), TreeError> {
         self.construct_simple(
             id.clone(),
@@ -162,6 +182,8 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         .map(|_| ())
     }
 
+    /// Constructs a new empty string within the `Tree`. Newly constructed values have no parent or
+    /// place in the tree until placed with an `assign` call.
     pub fn construct_string(&mut self, id: Id) -> Result<(), TreeError> {
         let segment_id = self.next_id();
         let string_id = self.construct_simple(
@@ -237,6 +259,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
 
     // TODO right now this is last-write-wins, could modify the object NodeData pretty lightly and
     // get multi value registers which would be sick
+    /// Moves `value` to `object[key]`.
     pub fn object_assign(&mut self, object: Id, key: String, value: Id) -> Result<(), TreeError> {
         let object_node_id = *self.id_to_node.get(&object).ok_or(TreeError::UnknownId)?;
         let value_node_id = *self.id_to_node.get(&value).ok_or(TreeError::UnknownId)?;
@@ -463,6 +486,26 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         panic!("id not found in segment id list");
     }
 
+    /// Gets the type of `Id`.
+    pub fn get_type(&self, id: Id) -> Result<ValueType, TreeError> {
+        let node_id = self
+            .id_to_node
+            .get(&id)
+            .ok_or(TreeError::UnknownId)?;
+        let node = self
+            .nodes
+            .get(&node_id)
+            .expect("node_id listed in id_to_node did not exist.");
+        match node.data {
+            NodeData::String {..} => Ok(ValueType::String),
+            NodeData::StringSegment {..} => Ok(ValueType::Character),
+            NodeData::Object {..} => Ok(ValueType::Object),
+            NodeData::Null {..} => Ok(ValueType::Null),
+            NodeData::True {..} => Ok(ValueType::True),
+            NodeData::False {..} => Ok(ValueType::False),
+        }
+    }
+
     pub fn get_string(&self, id: Id) -> Result<String, TreeError> {
         let string_node_id = self
             .id_to_node
@@ -493,13 +536,17 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         Ok(string)
     }
 
+    /// Creates `character` in the tree with id `character_id`, and immediately inserts it after
+    /// the character `append_id`. If `append_id` is the ID of a string instead of a character,
+    /// `character` will be inserted at the beginning of the string. `append_id` may be a deleted
+    /// character, if the tombstone is still in the tree.
     pub fn insert_character(
         &mut self,
         append_id: Id,
-        this_id: Id,
+        character_id: Id,
         character: char,
     ) -> Result<(), TreeError> {
-        if self.id_to_node.contains_key(&this_id) {
+        if self.id_to_node.contains_key(&character_id) {
             return Err(TreeError::DuplicateId);
         }
         let (node_id, string_index, id_list_index) = self.lookup_insertion_point(&append_id)?;
@@ -511,8 +558,8 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
                         *index += character.len_utf8();
                     }
                 }
-                ids.insert(id_list_index, (this_id.clone(), Some(string_index)));
-                self.id_to_node.insert(this_id, node_id);
+                ids.insert(id_list_index, (character_id.clone(), Some(string_index)));
+                self.id_to_node.insert(character_id, node_id);
                 self.consider_split(node_id);
             }
             _ => panic!("unknown object type!!"),
@@ -520,6 +567,8 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         Ok(())
     }
 
+    /// Deletes the character with ID `char_id`. A tombstone is left in the string, allowing future
+    /// `insert_character` calls to reference this `char_id` as their `append_id`.
     pub fn delete_character(&mut self, char_id: Id) -> Result<(), TreeError> {
         let (node_id, id_list_index) = self.lookup_id_index(&char_id)?;
         match &mut self.nodes[&node_id].data {
@@ -558,9 +607,34 @@ mod test {
     #[test]
     fn object_assignment() {
         let mut tree = Tree::new_with_object_root(MyId(0));
-        tree.construct_null(MyId(1)).unwrap();
+
+        tree.construct_object(MyId(1)).unwrap();
         tree.object_assign(MyId(0), "my key".to_string(), MyId(1));
-        // TODO create more children, nested, and validate that they are deleted
+
+        tree.construct_string(MyId(2)).unwrap();
+        tree.object_assign(MyId(1), "my key 2".to_string(), MyId(2));
+
+        tree.insert_character(MyId(2), MyId(3), 'a');
+
+        // {"my key": {"my key 2": "a"}}
+        // ^          ^            ^^
+        // 0          1            23
+        assert_eq!(Ok(ValueType::Object), tree.get_type(MyId(0)));
+        assert_eq!(Ok(ValueType::Object), tree.get_type(MyId(1)));
+        assert_eq!(Ok(ValueType::String), tree.get_type(MyId(2)));
+        assert_eq!(Ok(ValueType::Character), tree.get_type(MyId(3)));
+
+        tree.construct_bool(MyId(4), true).unwrap();
+        tree.object_assign(MyId(0), "my key".to_string(), MyId(4));
+
+        // {"my key": true}
+        // ^          ^
+        // 0          4
+        assert_eq!(Ok(ValueType::Object), tree.get_type(MyId(0)));
+        assert_eq!(Err(TreeError::UnknownId), tree.get_type(MyId(1)));
+        assert_eq!(Err(TreeError::UnknownId), tree.get_type(MyId(2)));
+        assert_eq!(Err(TreeError::UnknownId), tree.get_type(MyId(3)));
+        assert_eq!(Ok(ValueType::True), tree.get_type(MyId(4)));
     }
 
     #[test]
