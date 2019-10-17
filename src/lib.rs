@@ -1,1 +1,3 @@
-pub mod tree;
+mod tree;
+
+pub use tree::{Tree, TreeError};
