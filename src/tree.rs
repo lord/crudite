@@ -51,11 +51,18 @@ struct Node<Id: Hash + Clone + Eq + Debug> {
 #[derive(Clone, Debug)]
 enum NodeData<Id: Hash + Clone + Eq + Debug> {
     // TODO once string is implemented, copy implementation for `Array`?
-    True,
-    False,
-    Null,
+    True {
+        id: Id,
+    },
+    False {
+        id: Id,
+    },
+    Null {
+        id: Id,
+    },
     Object {
         items: HashMap<String, NodeId>,
+        id: Id,
     },
     /// Represents a JSON string value.
     String {
@@ -65,6 +72,7 @@ enum NodeData<Id: Hash + Clone + Eq + Debug> {
         /// The last `TextSegment` in the string value. May be equal to `start` if there is only
         /// one segment.
         end: NodeId,
+        id: Id,
     },
     /// Represents a range of a JSON string value.
     StringSegment {
@@ -123,19 +131,20 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     }
 
     pub fn construct_bool(&mut self, id: Id, val: bool) -> Result<(), TreeError> {
-        self.construct_simple(id, if val { NodeData::True } else { NodeData::False })
+        self.construct_simple(id.clone(), if val { NodeData::True { id } } else { NodeData::False { id } })
             .map(|_| ())
     }
 
     pub fn construct_null(&mut self, id: Id) -> Result<(), TreeError> {
-        self.construct_simple(id, NodeData::Null).map(|_| ())
+        self.construct_simple(id.clone(), NodeData::Null { id }).map(|_| ())
     }
 
     pub fn construct_object(&mut self, id: Id) -> Result<(), TreeError> {
         self.construct_simple(
-            id,
+            id.clone(),
             NodeData::Object {
                 items: HashMap::new(),
+                id,
             },
         )
         .map(|_| ())
@@ -144,8 +153,9 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     pub fn construct_string(&mut self, id: Id) -> Result<(), TreeError> {
         let segment_id = self.next_id();
         let string_id = self.construct_simple(
-            id,
+            id.clone(),
             NodeData::String {
+                id,
                 start: segment_id,
                 end: segment_id,
             },
@@ -175,9 +185,9 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     /// `delete_segment`.
     fn delete(&mut self, item: NodeId) {
         match self.nodes[&item].data {
-            NodeData::True
-            | NodeData::False
-            | NodeData::Null
+            NodeData::True {..}
+            | NodeData::False {..}
+            | NodeData::Null {..}
             | NodeData::Object { .. }
             | NodeData::String { .. } => { /* do nothing */ }
             _ => panic!("attempted to delete invalid type"),
@@ -189,19 +199,25 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
                 None => continue,
             };
             match node.data {
-                NodeData::True | NodeData::False | NodeData::Null => {
+                NodeData::True { id } | NodeData::False { id } | NodeData::Null { id } => {
                     // do nothing
+                    self.id_to_node.remove(&id).unwrap();
                 }
-                NodeData::Object { items } => {
+                NodeData::Object { id, items } => {
                     for (_, id) in items {
                         queue.push(id);
                     }
+                    self.id_to_node.remove(&id).unwrap();
                 }
-                NodeData::String { start, .. } => {
+                NodeData::String { start, id, .. } => {
                     queue.push(start);
+                    self.id_to_node.remove(&id).unwrap();
                 }
-                NodeData::StringSegment { next, .. } => {
+                NodeData::StringSegment { next, ids, .. } => {
                     queue.push(next);
+                    for (id, _) in ids {
+                        self.id_to_node.remove(&id).unwrap();
+                    }
                 }
             }
         }
@@ -213,7 +229,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         let object_node_id = *self.id_to_node.get(&object).ok_or(TreeError::UnknownId)?;
         let value_node_id = *self.id_to_node.get(&value).ok_or(TreeError::UnknownId)?;
         match &mut self.nodes[&object_node_id].data {
-            NodeData::Object { items } => {
+            NodeData::Object { items, id: _ } => {
                 if let Some(old_id) = items.insert(key, value_node_id) {
                     self.delete(old_id);
                 }
