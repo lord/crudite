@@ -210,16 +210,10 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     // TODO right now this is last-write-wins, could modify the object NodeData pretty lightly and
     // get multi value registers which would be sick
     pub fn object_assign(&mut self, object: Id, key: String, value: Id) -> Result<(), TreeError> {
-        let object_node_id = *self
-            .id_to_node
-            .get(&object)
-            .ok_or(TreeError::UnknownId)?;
-        let value_node_id = *self
-            .id_to_node
-            .get(&value)
-            .ok_or(TreeError::UnknownId)?;
+        let object_node_id = *self.id_to_node.get(&object).ok_or(TreeError::UnknownId)?;
+        let value_node_id = *self.id_to_node.get(&value).ok_or(TreeError::UnknownId)?;
         match &mut self.nodes[&object_node_id].data {
-            NodeData::Object {items} => {
+            NodeData::Object { items } => {
                 if let Some(old_id) = items.insert(key, value_node_id) {
                     self.delete(old_id);
                 }
