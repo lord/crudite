@@ -157,6 +157,38 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         res
     }
 
+    /// Deletes a node and all its children. If you want to delete a single segment, try
+    /// `delete_segment`.
+    fn delete(&mut self, item: NodeId) {
+        match self.nodes[&item].data {
+            NodeData::True | NodeData::False | NodeData::Null | NodeData::Object {..} | NodeData::String {..} => { /* do nothing */ },
+            _ => panic!("attempted to delete invalid type"),
+        }
+        let mut queue = vec![item];
+        while let Some(item) = queue.pop() {
+            let node = match self.nodes.remove(&item) {
+                Some(v) => v,
+                None => continue,
+            };
+            match node.data {
+                NodeData::True | NodeData::False | NodeData::Null => {
+                    // do nothing
+                }
+                NodeData::Object {items} => {
+                    for (_, id) in items {
+                        queue.push(id);
+                    }
+                }
+                NodeData::String {start, ..} => {
+                    queue.push(start);
+                }
+                NodeData::StringSegment {next, ..} => {
+                    queue.push(next);
+                }
+            }
+        }
+    }
+
     // fn object_assign(&mut self, object: Id, key: String, value: Id) {
     //     let node_id = self
     //         .id_to_node
