@@ -210,22 +210,23 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     // TODO right now this is last-write-wins, could modify the object NodeData pretty lightly and
     // get multi value registers which would be sick
     pub fn object_assign(&mut self, object: Id, key: String, value: Id) -> Result<(), TreeError> {
-        let object_node_id = self
+        let object_node_id = *self
             .id_to_node
             .get(&object)
             .ok_or(TreeError::UnknownId)?;
-        let value_node_id = self
+        let value_node_id = *self
             .id_to_node
             .get(&value)
             .ok_or(TreeError::UnknownId)?;
-        match &mut self.nodes[object_node_id].data {
+        match &mut self.nodes[&object_node_id].data {
             NodeData::Object {items} => {
-                if let Some(old_id) = items.insert(key, *value_node_id) {
+                if let Some(old_id) = items.insert(key, value_node_id) {
                     self.delete(old_id);
                 }
             }
             _ => return Err(TreeError::UnexpectedNodeType),
         }
+        self.nodes[&value_node_id].parent = Some(object_node_id);
         Ok(())
     }
 
@@ -530,6 +531,13 @@ mod test {
             3 => '3',
             _ => '4',
         }
+    }
+
+    #[test]
+    fn object_assignment() {
+        let mut tree = Tree::new_with_object_root(MyId(0));
+        tree.construct_null(MyId(1)).unwrap();
+        tree.object_assign(MyId(0), "my key".to_string(), MyId(1));
     }
 
     #[test]
