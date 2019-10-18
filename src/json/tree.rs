@@ -1,7 +1,7 @@
+use super::value::ValueType;
 use im::HashMap;
 use std::fmt::Debug;
 use std::hash::Hash;
-use super::value::ValueType;
 
 const JOIN_LEN: usize = 511;
 const SPLIT_LEN: usize = 1024;
@@ -250,7 +250,12 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     // get multi value registers which would be sick
     /// Moves `value` to `object[key]`. Since this recursively traverses the children of `object`
     /// it has `O(n log n)` worse case time. If `value` is `None`, the key is deleted.
-    pub fn object_assign(&mut self, object: Id, key: String, value: Option<Id>) -> Result<(), TreeError> {
+    pub fn object_assign(
+        &mut self,
+        object: Id,
+        key: String,
+        value: Option<Id>,
+    ) -> Result<(), TreeError> {
         let object_node_id = *self.id_to_node.get(&object).ok_or(TreeError::UnknownId)?;
         let value_node_id = if let Some(value) = value {
             Some(*self.id_to_node.get(&value).ok_or(TreeError::UnknownId)?)
@@ -489,29 +494,23 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
 
     /// Gets the type of `Id`.
     pub fn get_type(&self, id: Id) -> Result<ValueType, TreeError> {
-        let node_id = self
-            .id_to_node
-            .get(&id)
-            .ok_or(TreeError::UnknownId)?;
+        let node_id = self.id_to_node.get(&id).ok_or(TreeError::UnknownId)?;
         let node = self
             .nodes
             .get(&node_id)
             .expect("node_id listed in id_to_node did not exist.");
         match node.data {
-            NodeData::String {..} => Ok(ValueType::String),
-            NodeData::StringSegment {..} => Ok(ValueType::Character),
-            NodeData::Object {..} => Ok(ValueType::Object),
-            NodeData::Null {..} => Ok(ValueType::Null),
-            NodeData::True {..} => Ok(ValueType::True),
-            NodeData::False {..} => Ok(ValueType::False),
+            NodeData::String { .. } => Ok(ValueType::String),
+            NodeData::StringSegment { .. } => Ok(ValueType::Character),
+            NodeData::Object { .. } => Ok(ValueType::Object),
+            NodeData::Null { .. } => Ok(ValueType::Null),
+            NodeData::True { .. } => Ok(ValueType::True),
+            NodeData::False { .. } => Ok(ValueType::False),
         }
     }
 
     pub fn get_parent(&self, id: Id) -> Result<Option<Id>, TreeError> {
-        let node_id = self
-            .id_to_node
-            .get(&id)
-            .ok_or(TreeError::UnknownId)?;
+        let node_id = self.id_to_node.get(&id).ok_or(TreeError::UnknownId)?;
         let node = self
             .nodes
             .get(&node_id)
@@ -524,7 +523,9 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             .nodes
             .get(&parent_id)
             .expect("node_id listed in id_to_node did not exist.");
-        Ok(Some(id_of_node(parent).expect("parent of node was a string segment somehow")))
+        Ok(Some(
+            id_of_node(parent).expect("parent of node was a string segment somehow"),
+        ))
     }
 
     fn debug_get_string(&self, id: Id) -> Result<String, TreeError> {
@@ -611,12 +612,12 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
 
 fn id_of_node<Id: Hash + Clone + Eq + Debug>(node: &Node<Id>) -> Option<Id> {
     match &node.data {
-        NodeData::String {id, ..} => Some(id.clone()),
-        NodeData::Object {id, ..} => Some(id.clone()),
-        NodeData::Null {id, ..} => Some(id.clone()),
-        NodeData::True {id, ..} => Some(id.clone()),
-        NodeData::False {id, ..} => Some(id.clone()),
-        NodeData::StringSegment {..} => None,
+        NodeData::String { id, .. } => Some(id.clone()),
+        NodeData::Object { id, .. } => Some(id.clone()),
+        NodeData::Null { id, .. } => Some(id.clone()),
+        NodeData::True { id, .. } => Some(id.clone()),
+        NodeData::False { id, .. } => Some(id.clone()),
+        NodeData::StringSegment { .. } => None,
     }
 }
 
@@ -751,6 +752,9 @@ mod test {
         }
 
         let long_insert = (5..10000).map(|i| num_to_char(i)).collect::<String>();
-        assert_eq!(tree.debug_get_string(MyId(0)), Ok(format!("d{}acb", long_insert)));
+        assert_eq!(
+            tree.debug_get_string(MyId(0)),
+            Ok(format!("d{}acb", long_insert))
+        );
     }
 }

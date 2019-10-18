@@ -3,9 +3,9 @@
 //! We don't provide mutable parent access because that would allow you to delete something that
 //! contained the reference.
 
+use super::tree::Tree;
 use std::fmt::Debug;
 use std::hash::Hash;
-use super::tree::{Tree};
 
 macro_rules! define_value {
     ($ref_name:ident, $mut_name:ident ref {$($ref_contents:tt)*} mut {$($mut_contents:tt)*}) => {
@@ -90,32 +90,31 @@ pub enum ParentMut<'a, Id: Hash + Clone + Eq + Debug> {
     // Array(ArrayMut<'a, Id>),
 }
 
-define_value!{
+define_value! {
     StringRef, StringMut
     ref {
     }
     mut {
     }
 }
-define_value!{
+define_value! {
     ObjectRef, ObjectMut
     ref {
     }
     mut {
     }
 }
-define_value!{
+define_value! {
     BoolRef, BoolMut
     ref {
     }
     mut {
     }
 }
-define_value!{
+define_value! {
     NullRef, NullMut
     ref {
     }
     mut {
     }
 }
-

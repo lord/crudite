@@ -1,2 +1,2 @@
-pub mod json;
 pub mod crdt;
+pub mod json;

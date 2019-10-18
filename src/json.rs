@@ -1,3 +1,3 @@
 mod tree;
 pub mod value;
-pub use tree::{Tree};
+pub use tree::Tree;
