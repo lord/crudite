@@ -22,7 +22,7 @@ macro_rules! define_value {
                 let parent = self.tree.get_parent(self.id.clone()).expect("id should have existed if value wrapper existed");
                 parent.map(|parent| {
                     match self.tree.get_type(parent.clone()) {
-                        Object => {
+                        Ok(ValueType::Object) => {
                             ParentRef::Object(ObjectRef {
                                 id: parent,
                                 tree: &self.tree,
@@ -90,25 +90,76 @@ pub enum ParentMut<'a, Id: Hash + Clone + Eq + Debug> {
     // Array(ArrayMut<'a, Id>),
 }
 
+pub struct StringRefIter<'a, Id: Hash + Clone + Eq + Debug> {
+    inner: StringRef<'a, Id>,
+}
+impl <'a, Id: Hash + Clone + Eq + Debug> StringRefIter<'a, Id> {
+    fn jump_to(&mut self, id: Id) -> Result<(), ()> {
+        unimplemented!()
+    }
+    pub fn set_direction(&mut self, forward: bool) {
+        unimplemented!()
+    }
+}
+impl <'a, Id: Hash + Clone + Eq + Debug> std::iter::Iterator for StringRefIter<'a, Id> {
+    type Item = (Id, char);
+    fn next(&mut self) -> Option<Self::Item> {
+        unimplemented!()
+    }
+}
+
 define_value! {
     StringRef, StringMut
     ref {
+        pub fn to_string(&self) -> String {
+            unimplemented!()
+        }
+        pub fn start(&self) -> Id {
+            unimplemented!()
+        }
+        pub fn end(&self) -> Id {
+            unimplemented!()
+        }
+        pub fn iter_chars(&self) -> StringRefIter<'a, Id> {
+            unimplemented!()
+        }
     }
     mut {
+        pub fn insert_str(&mut self, insert_point: Id, string: &str) {
+            unimplemented!()
+        }
+        pub fn delete_char(&mut self, start: Id, end: Id) {
+            unimplemented!()
+        }
+        pub fn delete_range(&mut self, start: Id, end: Id) {
+            unimplemented!()
+        }
     }
 }
 define_value! {
     ObjectRef, ObjectMut
     ref {
+        pub fn get(&self, key: &str) -> Option<ValueRef<Id>> {
+            unimplemented!()
+        }
     }
     mut {
+        pub fn get_mut(&mut self, key: &str) -> Option<ValueMut<Id>> {
+            unimplemented!()
+        }
     }
 }
 define_value! {
     BoolRef, BoolMut
     ref {
+        pub fn get(&self) -> bool {
+            unimplemented!()
+        }
     }
     mut {
+        pub fn set(&mut self, val: bool) {
+            unimplemented!()
+        }
     }
 }
 define_value! {
