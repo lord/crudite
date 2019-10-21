@@ -3,6 +3,9 @@ name = "crudite"
 version = "0.1.0"
 authors = ["Robert Lord <robert@lord.io>"]
 edition = "2018"
+license = "mit"
+documentation = "Implementation of opset CRDTs"
+repository = "https://github.com/lord/crudite"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
