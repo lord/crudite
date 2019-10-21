@@ -9,13 +9,33 @@ use std::hash::Hash;
 
 macro_rules! define_value {
     ($ref_name:ident, $mut_name:ident ref {$($ref_contents:tt)*} mut {$($mut_contents:tt)*}) => {
-        pub struct $ref_name<'a, Id: Hash + Clone + Eq + Debug> {
-            id: Id,
-            tree: &'a Tree<Id>,
-        }
+        define_value!($ref_name ref {$($ref_contents)*});
         pub struct $mut_name<'a, Id: Hash + Clone + Eq + Debug> {
             id: Id,
             tree: &'a mut Tree<Id>,
+        }
+        impl <'a, Id: Hash + Clone + Eq + Debug> $mut_name<'a, Id> {
+            pub fn as_ref(&'a self) -> $ref_name<Id> {
+                $ref_name {
+                    id: self.id.clone(),
+                    tree: &self.tree,
+                }
+            }
+            pub fn parent(&'a self) -> Option<ParentRef<'a, Id>> {
+                self.as_ref().parent()
+            }
+            pub fn id(&self) -> Id {
+                self.as_ref().id()
+            }
+            $($ref_contents)*
+            $($mut_contents)*
+        }
+    };
+
+    ($ref_name:ident ref {$($ref_contents:tt)*}) => {
+        pub struct $ref_name<'a, Id: Hash + Clone + Eq + Debug> {
+            id: Id,
+            tree: &'a Tree<Id>,
         }
         impl <'a, Id: Hash + Clone + Eq + Debug> $ref_name<'a, Id> {
             pub fn parent(&self) -> Option<ParentRef<'a, Id>> {
@@ -38,22 +58,6 @@ macro_rules! define_value {
             }
             $($ref_contents)*
         }
-        impl <'a, Id: Hash + Clone + Eq + Debug> $mut_name<'a, Id> {
-            pub fn as_ref(&'a self) -> $ref_name<Id> {
-                $ref_name {
-                    id: self.id.clone(),
-                    tree: &self.tree,
-                }
-            }
-            pub fn parent(&'a self) -> Option<ParentRef<'a, Id>> {
-                self.as_ref().parent()
-            }
-            pub fn id(&self) -> Id {
-                self.as_ref().id()
-            }
-            $($ref_contents)*
-            $($mut_contents)*
-        }
     }
 }
 
@@ -71,14 +75,16 @@ pub enum ValueType {
 
 pub enum ValueRef<'a, Id: Hash + Clone + Eq + Debug> {
     String(StringRef<'a, Id>),
-    Bool(BoolRef<'a, Id>),
+    True(TrueRef<'a, Id>),
+    False(FalseRef<'a, Id>),
     Null(NullRef<'a, Id>),
     Object(ObjectRef<'a, Id>),
 }
 pub enum ValueMut<'a, Id: Hash + Clone + Eq + Debug> {
     String(StringMut<'a, Id>),
-    Bool(BoolMut<'a, Id>),
-    Null(NullMut<'a, Id>),
+    True(TrueRef<'a, Id>),
+    False(FalseRef<'a, Id>),
+    Null(NullRef<'a, Id>),
     Object(ObjectMut<'a, Id>),
 }
 pub enum ParentRef<'a, Id: Hash + Clone + Eq + Debug> {
@@ -150,22 +156,17 @@ define_value! {
     }
 }
 define_value! {
-    BoolRef, BoolMut
+    TrueRef
     ref {
-        pub fn get(&self) -> bool {
-            unimplemented!()
-        }
-    }
-    mut {
-        pub fn set(&mut self, val: bool) {
-            unimplemented!()
-        }
     }
 }
 define_value! {
-    NullRef, NullMut
+    FalseRef
     ref {
     }
-    mut {
+}
+define_value! {
+    NullRef
+    ref {
     }
 }
