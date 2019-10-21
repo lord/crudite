@@ -13,3 +13,13 @@ CRDT library.
 ## notes
 
 starting with simple opset crdt, no splicing
+
+
+## todo
+
+- [ ] implement rest of value
+- [ ] implement CRDT timestamps and operation linearization
+- [ ] add CRDT tests
+- [ ] add number type to json tree
+- [ ] add array type to json tree
+- [ ] splice operations?
