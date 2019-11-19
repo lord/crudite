@@ -248,8 +248,9 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
 
     // TODO right now this is last-write-wins, could modify the object NodeData pretty lightly and
     // get multi value registers which would be sick
-    /// Moves `value` to `object[key]`. Since this recursively traverses the children of `object`
-    /// it has `O(n log n)` worse case time. If `value` is `None`, the key is deleted.
+    /// Moves `value` to `object[key]`. If `value` is `None`, the key is deleted. The previous
+    /// value must be deleted, which takes `O(log n)` for each item in the subtree of the previous
+    /// value.
     pub fn object_assign(
         &mut self,
         object: Id,
