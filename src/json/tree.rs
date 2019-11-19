@@ -95,7 +95,7 @@ enum NodeData<Id: Hash + Clone + Eq + Debug> {
     },
 }
 
-impl <Id: Hash + Clone + Eq + Debug> Node<Id> {
+impl<Id: Hash + Clone + Eq + Debug> Node<Id> {
     fn id(&self) -> Option<Id> {
         match &self.data {
             NodeData::String { id, .. } => Some(id.clone()),
@@ -295,24 +295,23 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         Ok(())
     }
 
-    pub fn object_get(
-        &mut self,
-        object: Id,
-        key: &str,
-    ) -> Result<Option<Id>, TreeError> {
+    pub fn object_get(&mut self, object: Id, key: &str) -> Result<Option<Id>, TreeError> {
         let object_node_id = *self.id_to_node.get(&object).ok_or(TreeError::UnknownId)?;
         let child_node_id = match &mut self.nodes[&object_node_id].data {
             NodeData::Object { items, id: _ } => {
                 if let Some(child_node_id) = items.get(key) {
                     *child_node_id
                 } else {
-                    return Ok(None)
+                    return Ok(None);
                 }
             }
             _ => return Err(TreeError::UnexpectedNodeType),
         };
-        Ok(Some(self.nodes[&child_node_id].id().expect("segment was somehow child of object?")))
-
+        Ok(Some(
+            self.nodes[&child_node_id]
+                .id()
+                .expect("segment was somehow child of object?"),
+        ))
     }
 
     /// Deletes a segment with node id `usize`, returns deleted NodeData and new Tree. Caller is
@@ -558,7 +557,9 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             .get(&parent_id)
             .expect("node_id listed in id_to_node did not exist.");
         Ok(Some(
-            parent.id().expect("parent of node was a string segment somehow"),
+            parent
+                .id()
+                .expect("parent of node was a string segment somehow"),
         ))
     }
 
