@@ -95,6 +95,19 @@ enum NodeData<Id: Hash + Clone + Eq + Debug> {
     },
 }
 
+impl <Id: Hash + Clone + Eq + Debug> Node<Id> {
+    fn id(&self) -> Option<Id> {
+        match &self.data {
+            NodeData::String { id, .. } => Some(id.clone()),
+            NodeData::Object { id, .. } => Some(id.clone()),
+            NodeData::Null { id, .. } => Some(id.clone()),
+            NodeData::True { id, .. } => Some(id.clone()),
+            NodeData::False { id, .. } => Some(id.clone()),
+            NodeData::StringSegment { .. } => None,
+        }
+    }
+}
+
 impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     /// This is private since it constructs a tree with no root value; use one of the public
     /// constructors to create the `Tree` instead.
@@ -280,6 +293,26 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             self.nodes[&value_node_id].parent = Some(object_node_id);
         }
         Ok(())
+    }
+
+    pub fn object_get(
+        &mut self,
+        object: Id,
+        key: &str,
+    ) -> Result<Option<Id>, TreeError> {
+        let object_node_id = *self.id_to_node.get(&object).ok_or(TreeError::UnknownId)?;
+        let child_node_id = match &mut self.nodes[&object_node_id].data {
+            NodeData::Object { items, id: _ } => {
+                if let Some(child_node_id) = items.get(key) {
+                    *child_node_id
+                } else {
+                    return Ok(None)
+                }
+            }
+            _ => return Err(TreeError::UnexpectedNodeType),
+        };
+        Ok(Some(self.nodes[&child_node_id].id().expect("segment was somehow child of object?")))
+
     }
 
     /// Deletes a segment with node id `usize`, returns deleted NodeData and new Tree. Caller is
@@ -525,7 +558,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             .get(&parent_id)
             .expect("node_id listed in id_to_node did not exist.");
         Ok(Some(
-            id_of_node(parent).expect("parent of node was a string segment somehow"),
+            parent.id().expect("parent of node was a string segment somehow"),
         ))
     }
 
@@ -611,17 +644,6 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     }
 }
 
-fn id_of_node<Id: Hash + Clone + Eq + Debug>(node: &Node<Id>) -> Option<Id> {
-    match &node.data {
-        NodeData::String { id, .. } => Some(id.clone()),
-        NodeData::Object { id, .. } => Some(id.clone()),
-        NodeData::Null { id, .. } => Some(id.clone()),
-        NodeData::True { id, .. } => Some(id.clone()),
-        NodeData::False { id, .. } => Some(id.clone()),
-        NodeData::StringSegment { .. } => None,
-    }
-}
-
 #[cfg(test)]
 mod test {
     use super::*;
@@ -667,6 +689,9 @@ mod test {
         assert_eq!(Ok(Some(MyId(0))), tree.get_parent(MyId(1)));
         assert_eq!(Ok(Some(MyId(1))), tree.get_parent(MyId(2)));
         assert_eq!(Ok(Some(MyId(2))), tree.get_parent(MyId(3)));
+        assert_eq!(Ok(Some(MyId(1))), tree.object_get(MyId(0), "my key"));
+        assert_eq!(Ok(Some(MyId(2))), tree.object_get(MyId(1), "my key 2"));
+        assert_eq!(Ok(None), tree.object_get(MyId(0), "my key 2"));
 
         tree.construct_bool(MyId(4), true).unwrap();
         tree.object_assign(MyId(0), "my key".to_string(), Some(MyId(4)));
