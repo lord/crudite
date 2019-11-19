@@ -709,6 +709,7 @@ mod test {
         assert_eq!(Err(TreeError::UnknownId), tree.get_parent(MyId(2)));
         assert_eq!(Err(TreeError::UnknownId), tree.get_parent(MyId(3)));
         assert_eq!(Ok(Some(MyId(0))), tree.get_parent(MyId(4)));
+        assert_eq!(Ok(Some(MyId(4))), tree.object_get(MyId(0), "my key"));
 
         tree.object_assign(MyId(0), "my key".to_string(), None);
 
