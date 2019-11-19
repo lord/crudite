@@ -39,7 +39,9 @@ macro_rules! define_value {
         }
         impl <'a, Id: Hash + Clone + Eq + Debug> $ref_name<'a, Id> {
             pub fn parent(&self) -> Option<ParentRef<'a, Id>> {
-                let parent = self.tree.get_parent(self.id.clone()).expect("id should have existed if value wrapper existed");
+                let parent =
+                    self.tree.get_parent(self.id.clone())
+                             .expect("id should have existed if value wrapper existed");
                 parent.map(|parent| {
                     match self.tree.get_type(parent.clone()) {
                         Ok(ValueType::Object) => {
@@ -99,7 +101,7 @@ pub enum ParentMut<'a, Id: Hash + Clone + Eq + Debug> {
 pub struct StringRefIter<'a, Id: Hash + Clone + Eq + Debug> {
     inner: StringRef<'a, Id>,
 }
-impl <'a, Id: Hash + Clone + Eq + Debug> StringRefIter<'a, Id> {
+impl<'a, Id: Hash + Clone + Eq + Debug> StringRefIter<'a, Id> {
     fn jump_to(&mut self, id: Id) -> Result<(), ()> {
         unimplemented!()
     }
@@ -107,7 +109,7 @@ impl <'a, Id: Hash + Clone + Eq + Debug> StringRefIter<'a, Id> {
         unimplemented!()
     }
 }
-impl <'a, Id: Hash + Clone + Eq + Debug> std::iter::Iterator for StringRefIter<'a, Id> {
+impl<'a, Id: Hash + Clone + Eq + Debug> std::iter::Iterator for StringRefIter<'a, Id> {
     type Item = (Id, char);
     fn next(&mut self) -> Option<Self::Item> {
         unimplemented!()
