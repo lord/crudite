@@ -1,10 +1,21 @@
-use super::value::ValueType;
 use im::HashMap;
 use std::fmt::Debug;
 use std::hash::Hash;
 
 const JOIN_LEN: usize = 511;
 const SPLIT_LEN: usize = 1024;
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ValueType {
+    String,
+    Character,
+    True,
+    False,
+    Null,
+    Object,
+    Array,
+    ArrayEntry,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum TreeError {
