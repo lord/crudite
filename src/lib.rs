@@ -1,2 +1,2 @@
-pub mod crdt;
+pub mod opset;
 pub mod tree;

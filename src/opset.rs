@@ -4,7 +4,7 @@ pub trait Edit<State> {
     fn apply(&self, tree: &mut State);
 }
 
-pub struct OpSetCrdt<E: Edit<S> + Ord, S: Clone> {
+pub struct Opset<E: Edit<S> + Ord, S: Clone> {
     /// list of all edits applied to this tree
     edits: Vec<E>,
     /// a list of (num edits applied, state of tree at that point in time)
@@ -13,9 +13,9 @@ pub struct OpSetCrdt<E: Edit<S> + Ord, S: Clone> {
     cache_gap: usize,
 }
 
-impl<E: Edit<S> + Ord, S: Clone> OpSetCrdt<E, S> {
+impl<E: Edit<S> + Ord, S: Clone> Opset<E, S> {
     pub fn new(initial_state: S, cache_gap: usize) -> Self {
-        OpSetCrdt {
+        Opset {
             edits: Vec::new(),
             cache_gap,
             states: vec![(0, initial_state)],
@@ -101,7 +101,7 @@ mod test {
 
     #[test]
     fn various_edits_work() {
-        let mut crdt = OpSetCrdt::new(vec![0], 2);
+        let mut crdt = Opset::new(vec![0], 2);
         // initial edit
         crdt.edit(TestEdit {
             timestamp: 10,
@@ -145,7 +145,7 @@ mod test {
 
     #[test]
     fn various_edits_work_with_iter() {
-        let mut crdt = OpSetCrdt::new(vec![0], 2);
+        let mut crdt = Opset::new(vec![0], 2);
 
         let edits = vec![
             TestEdit {
