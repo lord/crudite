@@ -40,7 +40,7 @@ impl <E: Edit<S> + Ord, S: Clone> OpSetCrdt<E, S> {
         self.states.truncate(index_of_first_bad_state);
         let (mut applied_edits, mut state) = self.states.pop().unwrap();
         while applied_edits < self.edits.len() {
-            if self.states.len() == 0 || self.states.last().unwrap().0 + self.cache_gap > applied_edits {
+            if self.states.len() == 0 || self.states.last().unwrap().0 + self.cache_gap <= applied_edits {
                 // time to insert a new cache
                 self.states.push((applied_edits, state.clone()));
             }
@@ -57,8 +57,61 @@ impl <E: Edit<S> + Ord, S: Clone> OpSetCrdt<E, S> {
 
 #[cfg(test)]
 mod test {
+    use super::*;
+
+    #[derive(PartialOrd, Ord, Debug, Clone, Eq, PartialEq)]
+    struct TestEdit {
+        timestamp: usize,
+        value: usize,
+    }
+
+    impl Edit<Vec<usize>> for TestEdit {
+        fn apply(&self, state: &mut Vec<usize>) {
+            state.push(self.value);
+        }
+    }
+
     #[test]
-    fn it_works() {
-        assert!(true);
+    fn various_edits_work() {
+        let mut crdt = OpSetCrdt::new(vec![0], 2);
+        // initial edit
+        crdt.edit(TestEdit {
+            timestamp: 10,
+            value: 1,
+        });
+        assert_eq!(crdt.state(), &[0, 1]);
+        assert_eq!(crdt.states.len(), 2);
+
+        // edit before start
+        crdt.edit(TestEdit {
+            timestamp: 5,
+            value: 2,
+        });
+        assert_eq!(crdt.state(), &[0, 2, 1]);
+        assert_eq!(crdt.states.len(), 2);
+
+        // edit at end
+        crdt.edit(TestEdit {
+            timestamp: 15,
+            value: 3,
+        });
+        assert_eq!(crdt.state(), &[0, 2, 1, 3]);
+        assert_eq!(crdt.states.len(), 3);
+
+        // edit in middle
+        crdt.edit(TestEdit {
+            timestamp: 12,
+            value: 4,
+        });
+        assert_eq!(crdt.state(), &[0, 2, 1, 4, 3]);
+        assert_eq!(crdt.states.len(), 3);
+
+        // one more edit
+        crdt.edit(TestEdit {
+            timestamp: 11,
+            value: 5,
+        });
+        assert_eq!(crdt.state(), &[0, 2, 1, 5, 4, 3]);
+        assert_eq!(crdt.states.len(), 4);
     }
 }
