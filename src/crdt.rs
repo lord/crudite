@@ -129,4 +129,35 @@ mod test {
         assert_eq!(crdt.state(), &[0, 2, 1, 5, 4, 3]);
         assert_eq!(crdt.states.len(), 4);
     }
+
+    #[test]
+    fn various_edits_work_with_iter() {
+        let mut crdt = OpSetCrdt::new(vec![0], 2);
+
+        let edits = vec![
+            TestEdit {
+                timestamp: 10,
+                value: 1,
+            },
+            TestEdit {
+                timestamp: 5,
+                value: 2,
+            },
+            TestEdit {
+                timestamp: 15,
+                value: 3,
+            },
+            TestEdit {
+                timestamp: 12,
+                value: 4,
+            },
+            TestEdit {
+                timestamp: 11,
+                value: 5,
+            },
+        ];
+        crdt.edit_from_iter(edits.into_iter());
+        assert_eq!(crdt.state(), &[0, 2, 1, 5, 4, 3]);
+        assert_eq!(crdt.states.len(), 4);
+    }
 }
