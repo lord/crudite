@@ -13,7 +13,7 @@ pub struct OpSetCrdt<E: Edit<S> + Ord, S: Clone> {
     cache_gap: usize,
 }
 
-impl <E: Edit<S> + Ord, S: Clone> OpSetCrdt<E, S> {
+impl<E: Edit<S> + Ord, S: Clone> OpSetCrdt<E, S> {
     pub fn new(initial_state: S, cache_gap: usize) -> Self {
         OpSetCrdt {
             edits: Vec::new(),
@@ -23,19 +23,25 @@ impl <E: Edit<S> + Ord, S: Clone> OpSetCrdt<E, S> {
     }
 
     pub fn edit(&mut self, edit: E) {
-        let insert_point = self.edits.binary_search(&edit).expect_err("two edits had the same timestamp");
+        let insert_point = self
+            .edits
+            .binary_search(&edit)
+            .expect_err("two edits had the same timestamp");
         self.edits.insert(insert_point, edit);
         self.recalculate(insert_point);
     }
 
-    pub fn edit_from_iter<I: std::iter::Iterator<Item=E>>(&mut self, edits: I) {
+    pub fn edit_from_iter<I: std::iter::Iterator<Item = E>>(&mut self, edits: I) {
         let mut least_insert_point = None;
         for edit in edits {
-            let insert_point = self.edits.binary_search(&edit).expect_err("two edits had the same timestamp");
+            let insert_point = self
+                .edits
+                .binary_search(&edit)
+                .expect_err("two edits had the same timestamp");
             self.edits.insert(insert_point, edit);
             least_insert_point = match least_insert_point {
                 Some(prev) if prev < insert_point => Some(prev),
-                _ => Some(insert_point)
+                _ => Some(insert_point),
             };
         }
         if let Some(least_insert_point) = least_insert_point {
@@ -46,16 +52,19 @@ impl <E: Edit<S> + Ord, S: Clone> OpSetCrdt<E, S> {
     /// Recalculates states after the edit list has been changed. The first `insert_point`
     /// edits should be identical to the last time `recalculate` was called.
     fn recalculate(&mut self, insert_point: usize) {
-        let index_of_first_bad_state = match self.states.binary_search_by_key(&insert_point, |(n, _)| *n) {
-            Ok(n) => n+1,
-            Err(n) => n,
-        };
+        let index_of_first_bad_state =
+            match self.states.binary_search_by_key(&insert_point, |(n, _)| *n) {
+                Ok(n) => n + 1,
+                Err(n) => n,
+            };
         // delete all previous states after least_insert_point, add one so that if something exists
         // exactly at `least_insert_point` it is preserved.
         self.states.truncate(index_of_first_bad_state);
         let (mut applied_edits, mut state) = self.states.pop().unwrap();
         while applied_edits < self.edits.len() {
-            if self.states.len() == 0 || self.states.last().unwrap().0 + self.cache_gap <= applied_edits {
+            if self.states.len() == 0
+                || self.states.last().unwrap().0 + self.cache_gap <= applied_edits
+            {
                 // time to insert a new cache
                 self.states.push((applied_edits, state.clone()));
             }
@@ -66,7 +75,11 @@ impl <E: Edit<S> + Ord, S: Clone> OpSetCrdt<E, S> {
     }
 
     pub fn state(&self) -> &S {
-        &self.states.last().expect("somehow state cache was empty?").1
+        &self
+            .states
+            .last()
+            .expect("somehow state cache was empty?")
+            .1
     }
 }
 
