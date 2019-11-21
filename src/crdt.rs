@@ -1,41 +1,34 @@
 use crate::tree::Tree;
 use std::collections::BTreeMap;
 
-#[derive(Debug, Hash, Clone, Copy, Eq, PartialEq)]
-pub struct Id(u64);
-
-pub enum Op {
-    InsertText {
-        prev_character: Id,
-        text: String,
-    },
+pub trait Edit<State> {
+    fn apply(&self, tree: &mut State);
 }
 
-pub struct Edit {
-    ops: Vec<Op>,
-    site: u64,
-    timestamp: u64,
-}
-
-pub struct TreeCrdt {
+pub struct OpSetCrdt<E: Edit<State> + Ord, State: Clone> {
     /// list of all edits applied to this tree
-    edits: Vec<Edit>,
-    tree: Tree<Id>,
+    edits: Vec<E>,
+    /// current state of the tree
+    state: State,
     /// maps (num edits applied) -> (tree at that point in time)
-    old_trees: BTreeMap<usize, Tree<Id>>,
+    old_states: BTreeMap<usize, State>,
 }
 
-impl TreeCrdt {
-    pub fn new() -> Self {
-        TreeCrdt {
+impl <E: Edit<State> + Ord, State: Clone> OpSetCrdt<E, State> {
+    pub fn new(initial_state: State) -> Self {
+        OpSetCrdt {
             edits: Vec::new(),
-            tree: Tree::new_with_object_root(Id(0)),
-            old_trees: BTreeMap::new(),
+            state: initial_state,
+            old_states: BTreeMap::new(),
         }
     }
 
-    pub fn edit(&mut self, edit: Edit) {
+    pub fn edit(&mut self, edit: E) {
         unimplemented!();
+    }
+
+    pub fn state(&self) -> &State {
+        &self.state
     }
 }
 
