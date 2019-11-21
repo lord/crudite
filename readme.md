@@ -17,9 +17,15 @@ starting with simple opset crdt, no splicing
 
 ## todo
 
-- [ ] implement rest of value
-- [ ] implement CRDT timestamps and operation linearization
-- [ ] add CRDT tests
+- [x] implement operation linearization
+- [x] add CRDT tests
+- [ ] actual op/edit/crdt struct that combines opsets and jsontree
 - [ ] add number type to json tree
 - [ ] add array type to json tree
+
+## future work
+
+- [ ] garbage collection
+- [ ] selective subtree sync
 - [ ] splice operations?
+- [ ] figure out true cost of all the tree deleting. can we speed up or defer the deletions when an old edit is inserted early in the oplist, or when object_assign deletes a large subtree?
