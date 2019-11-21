@@ -28,6 +28,21 @@ impl <E: Edit<S> + Ord, S: Clone> OpSetCrdt<E, S> {
         self.recalculate(insert_point);
     }
 
+    pub fn edit_from_iter<I: std::iter::Iterator<Item=E>>(&mut self, edits: I) {
+        let mut least_insert_point = None;
+        for edit in edits {
+            let insert_point = self.edits.binary_search(&edit).expect_err("two edits had the same timestamp");
+            self.edits.insert(insert_point, edit);
+            least_insert_point = match least_insert_point {
+                Some(prev) if prev < insert_point => Some(prev),
+                _ => Some(insert_point)
+            };
+        }
+        if let Some(least_insert_point) = least_insert_point {
+            self.recalculate(least_insert_point);
+        }
+    }
+
     /// Recalculates states after the edit list has been changed. The first `insert_point`
     /// edits should be identical to the last time `recalculate` was called.
     fn recalculate(&mut self, insert_point: usize) {
