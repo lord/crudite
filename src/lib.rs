@@ -1,5 +1,5 @@
 pub mod opset;
 pub mod tree;
 
-mod document;
-use document::*;
+mod doc;
+use doc::*;
