@@ -187,16 +187,16 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         }
     }
 
-    pub fn update(&mut self, edit: &Edit<Id>) {
+    pub fn update(&mut self, edit: &Edit<Id>) -> Result<(), TreeError> {
         match edit {
             Edit::ListCreate {id} => {
                 unimplemented!()
             }
             Edit::MapCreate {id} => {
-                unimplemented!()
+                self.construct_object(id.clone())
             }
             Edit::TextCreate {id} => {
-                unimplemented!()
+                self.construct_string(id.clone())
             }
             Edit::ListInsert {parent, prev, item} => {
                 unimplemented!()
@@ -210,7 +210,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             Edit::Delete {id} => {
                 unimplemented!()
             }
-        };
+        }
     }
 
     /// Creates a new `Tree` representing an empty string.
