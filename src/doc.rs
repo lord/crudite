@@ -41,9 +41,9 @@ pub enum Edit {
         /// Id of list to insert into.
         parent: Id,
         /// If new item is at start of list, `prev` is `None`.
-        key: Option<Id>,
+        prev: Option<Id>,
         /// Id of newly created character
-        obj: Value,
+        obj: Id,
         /// Actual new character value
         character: char,
     },
@@ -51,7 +51,7 @@ pub enum Edit {
     //     /// Id of list to insert into.
     //     parent: Id,
     //     /// If new item is at start of list, `prev` is `None`.
-    //     key: Option<Id>,
+    //     prev: Option<Id>,
     //     /// Item to be inserted. If this item had a prevous parent, it is removed from that parent.
     //     obj: Value,
     // },
@@ -88,7 +88,7 @@ impl opset::Operation<Tree<Id>> for DocOp {
     }
 }
 
-struct Doc {
+pub struct Doc {
     opset: opset::Opset<DocOp, Tree<Id>>,
 }
 
