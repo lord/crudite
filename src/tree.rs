@@ -9,7 +9,7 @@ const SPLIT_LEN: usize = 1024;
 pub enum Value<Id> {
     True,
     False,
-    // TODO number
+    Int(i64),
     Null,
     Collection(Id),
     Unset,
@@ -19,7 +19,7 @@ pub enum Value<Id> {
 enum Child {
     True,
     False,
-    // TODO number
+    Int(i64),
     Null,
     Collection(NodeId),
 }
@@ -304,7 +304,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
                         match val {
                             Child::Collection(id) => {queue.push(id);},
                             // do nothing for other values; don't have any subchildren to delete
-                            Child::True | Child::False | Child::Null => {},
+                            Child::True | Child::False | Child::Null | Child::Int(_) => {},
                         }
                     }
                     self.id_to_node.remove(&id).unwrap();
@@ -343,6 +343,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             Value::True => Some(Child::True),
             Value::False => Some(Child::False),
             Value::Null => Some(Child::Null),
+            Value::Int(i) => Some(Child::Int(i)),
             Value::Unset => None,
         };
         if let Some(Child::Collection(child)) = &child_opt {
@@ -380,6 +381,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             Child::True => Value::True,
             Child::False => Value::False,
             Child::Null => Value::Null,
+            Child::Int(i) => Value::Int(*i),
             Child::Collection(node_id) => {
                 let id = self.nodes[&node_id]
                     .id()

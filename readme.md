@@ -28,4 +28,5 @@ starting with simple opset crdt, no splicing
 - [ ] garbage collection
 - [ ] selective subtree sync
 - [ ] splice operations?
+- [ ] maybe edits aren't actually ord, figure out id system for edits so we can delete them as well? will allow us to have floats also
 - [ ] figure out true cost of all the tree deleting. can we speed up or defer the deletions when an old edit is inserted early in the oplist, or when object_assign deletes a large subtree?
