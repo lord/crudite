@@ -25,33 +25,33 @@ pub enum Value {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Edit {
-    // MakeList {
-    //     /// id of new list
-    //     obj: Id,
-    // },
+    ListCreate {
+        /// id of new list
+        id: Id,
+    },
     MapCreate {
         /// id of new map
-        obj: Id,
+        id: Id,
     },
     TextCreate {
         /// id of new text
-        obj: Id,
+        id: Id,
     },
-    // ListInsert {
-    //     /// Id of list to insert into.
-    //     parent: Id,
-    //     /// If new item is at start of list, `prev` is `None`.
-    //     prev: Option<Id>,
-    //     /// Item to be inserted. If this item had a prevous parent, it is removed from that parent.
-    //     obj: Value,
-    // },
+    ListInsert {
+        /// Id of list to insert into.
+        parent: Id,
+        /// If new item is at start of list, `prev` is `None`.
+        prev: Option<Id>,
+        /// Item to be inserted. If this item had a prevous parent, it is removed from that parent.
+        item: Value,
+    },
     MapInsert {
         /// Id of hashmap to insert into.
         parent: Id,
         /// Key of item in hashmap
         key: String,
         /// Item to be set. If this item had a prevous parent, it is removed from that parent.
-        obj: Value,
+        item: Value,
     },
     TextInsert {
         /// Id of list to insert into.
@@ -59,9 +59,13 @@ pub enum Edit {
         /// If new item is at start of list, `prev` is `None`.
         prev: Option<Id>,
         /// Id of newly created character
-        obj: Id,
+        id: Id,
         /// Actual new character value
         character: char,
+    },
+    Delete {
+        /// Id of character, map, text, list, etc. to delete
+        id: Id,
     },
 }
 
@@ -84,7 +88,31 @@ impl Ord for DocOp {
 
 impl opset::Operation<Tree<Id>> for DocOp {
     fn apply(&self, tree: &mut Tree<Id>) {
-        unimplemented!()
+        for edit in &self.edits {
+            match edit {
+                Edit::ListCreate {id} => {
+                    unimplemented!()
+                }
+                Edit::MapCreate {id} => {
+                    unimplemented!()
+                }
+                Edit::TextCreate {id} => {
+                    unimplemented!()
+                }
+                Edit::ListInsert {parent, prev, item} => {
+                    unimplemented!()
+                }
+                Edit::MapInsert {parent, key, item} => {
+                    unimplemented!()
+                }
+                Edit::TextInsert {parent, prev, id, character} => {
+                    unimplemented!()
+                }
+                Edit::Delete {id} => {
+                    unimplemented!()
+                }
+            };
+        }
     }
 }
 
