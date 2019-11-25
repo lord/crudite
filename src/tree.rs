@@ -12,6 +12,7 @@ pub enum Value<Id> {
     // TODO number
     Null,
     Collection(Id),
+    Unset,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -331,18 +332,18 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         &mut self,
         object: Id,
         key: String,
-        value: Option<Value<Id>>,
+        value: Value<Id>,
     ) -> Result<(), TreeError> {
         let object_node_id = *self.id_to_node.get(&object).ok_or(TreeError::UnknownId)?;
         let child_opt = match value {
-            Some(Value::Collection(id)) => {
+            Value::Collection(id) => {
                 let node_id = *self.id_to_node.get(&id).ok_or(TreeError::UnknownId)?;
                 Some(Child::Collection(node_id))
             }
-            Some(Value::True) => Some(Child::True),
-            Some(Value::False) => Some(Child::False),
-            Some(Value::Null) => Some(Child::Null),
-            None => None,
+            Value::True => Some(Child::True),
+            Value::False => Some(Child::False),
+            Value::Null => Some(Child::Null),
+            Value::Unset => None,
         };
         if let Some(Child::Collection(child)) = &child_opt {
             self.nodes[&child].parent = Some(object_node_id);
@@ -363,14 +364,14 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         Ok(())
     }
 
-    pub fn object_get(&self, object: Id, key: &str) -> Result<Option<Value<Id>>, TreeError> {
+    pub fn object_get(&self, object: Id, key: &str) -> Result<Value<Id>, TreeError> {
         let object_node_id = *self.id_to_node.get(&object).ok_or(TreeError::UnknownId)?;
         let child = match &self.nodes[&object_node_id].data {
             NodeData::Object { items, id: _ } => {
                 if let Some(child) = items.get(key) {
                     child
                 } else {
-                    return Ok(None);
+                    return Ok(Value::Unset);
                 }
             }
             _ => return Err(TreeError::UnexpectedNodeType),
@@ -386,7 +387,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
                 Value::Collection(id)
             }
         };
-        Ok(Some(val))
+        Ok(val)
     }
 
     /// Deletes a segment with node id `usize`, returns deleted NodeData and new Tree. Caller is
@@ -744,10 +745,10 @@ mod test {
         assert_eq!(Ok(None), tree.get_parent(MyId(0)));
 
         tree.construct_object(MyId(1)).unwrap();
-        tree.object_assign(MyId(0), "my key".to_string(), Some(Value::Collection(MyId(1))));
+        tree.object_assign(MyId(0), "my key".to_string(), Value::Collection(MyId(1)));
 
         tree.construct_string(MyId(2)).unwrap();
-        tree.object_assign(MyId(1), "my key 2".to_string(), Some(Value::Collection(MyId(2))));
+        tree.object_assign(MyId(1), "my key 2".to_string(), Value::Collection(MyId(2)));
 
         tree.insert_character(MyId(2), MyId(3), 'a');
 
@@ -762,11 +763,11 @@ mod test {
         assert_eq!(Ok(Some(MyId(0))), tree.get_parent(MyId(1)));
         assert_eq!(Ok(Some(MyId(1))), tree.get_parent(MyId(2)));
         assert_eq!(Ok(Some(MyId(2))), tree.get_parent(MyId(3)));
-        assert_eq!(Ok(Some(Value::Collection(MyId(1)))), tree.object_get(MyId(0), "my key"));
-        assert_eq!(Ok(Some(Value::Collection(MyId(2)))), tree.object_get(MyId(1), "my key 2"));
-        assert_eq!(Ok(None), tree.object_get(MyId(0), "my key 2"));
+        assert_eq!(Ok(Value::Collection(MyId(1))), tree.object_get(MyId(0), "my key"));
+        assert_eq!(Ok(Value::Collection(MyId(2))), tree.object_get(MyId(1), "my key 2"));
+        assert_eq!(Ok(Value::Unset), tree.object_get(MyId(0), "my key 2"));
 
-        tree.object_assign(MyId(0), "my key".to_string(), Some(Value::True));
+        tree.object_assign(MyId(0), "my key".to_string(), Value::True);
 
         // {"my key": true}
         // ^          ^
@@ -779,9 +780,9 @@ mod test {
         assert_eq!(Err(TreeError::UnknownId), tree.get_parent(MyId(1)));
         assert_eq!(Err(TreeError::UnknownId), tree.get_parent(MyId(2)));
         assert_eq!(Err(TreeError::UnknownId), tree.get_parent(MyId(3)));
-        assert_eq!(Ok(Some(Value::True)), tree.object_get(MyId(0), "my key"));
+        assert_eq!(Ok(Value::True), tree.object_get(MyId(0), "my key"));
 
-        tree.object_assign(MyId(0), "my key".to_string(), None);
+        tree.object_assign(MyId(0), "my key".to_string(), Value::Unset);
 
         // {}
         // ^
@@ -791,7 +792,7 @@ mod test {
         assert_eq!(Err(TreeError::UnknownId), tree.get_type(MyId(2)));
         assert_eq!(Err(TreeError::UnknownId), tree.get_type(MyId(3)));
         assert_eq!(Err(TreeError::UnknownId), tree.get_type(MyId(4)));
-        assert_eq!(Ok(None), tree.object_get(MyId(0), "my key"));
+        assert_eq!(Ok(Value::Unset), tree.object_get(MyId(0), "my key"));
     }
 
     #[test]
