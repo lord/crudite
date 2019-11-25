@@ -2,12 +2,19 @@ use std::cmp::Ordering;
 use crate::opset;
 use crate::tree::Tree;
 
+const CACHE_GAP: usize = 10;
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-struct Id {
+pub struct Id {
+    num: usize,
 }
 
+const ROOT_ID: Id = Id {
+    num: 0,
+};
+
 #[derive(Clone, Debug, PartialEq, Eq)]
-enum Value {
+pub enum Value {
     True,
     False,
     // TODO number
@@ -17,7 +24,7 @@ enum Value {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-enum Edit {
+pub enum Edit {
     MapCreate {
         /// id of new map
         obj: Id,
@@ -59,7 +66,7 @@ enum Edit {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct DocOp {
+pub struct DocOp {
     timestamp: u64,
     edits: Vec<Edit>,
 }
@@ -86,4 +93,9 @@ struct Doc {
 }
 
 impl Doc {
+    pub fn new() -> Doc {
+        Doc {
+            opset: opset::Opset::new(Tree::new(ROOT_ID), CACHE_GAP),
+        }
+    }
 }

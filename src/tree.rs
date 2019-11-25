@@ -122,7 +122,7 @@ impl<Id: Hash + Clone + Eq + Debug> Node<Id> {
 impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     /// This is private since it constructs a tree with no root value; use one of the public
     /// constructors to create the `Tree` instead.
-    fn new(root_id: Id) -> Self {
+    pub fn new(root_id: Id) -> Self {
         Tree {
             next_node: NodeId(0),
             id_to_node: HashMap::new(),
