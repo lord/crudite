@@ -20,7 +20,7 @@ impl<E: Operation<S> + Ord, S: Clone> Opset<E, S> {
         }
     }
 
-    pub fn edit(&mut self, edit: E) {
+    pub fn insert(&mut self, edit: E) {
         let insert_point = self
             .ops
             .binary_search(&edit)
@@ -29,7 +29,7 @@ impl<E: Operation<S> + Ord, S: Clone> Opset<E, S> {
         self.recalculate(insert_point);
     }
 
-    pub fn edit_from_iter<I: std::iter::Iterator<Item = E>>(&mut self, ops: I) {
+    pub fn insert_from_iter<I: std::iter::Iterator<Item = E>>(&mut self, ops: I) {
         let mut least_insert_point = None;
         for edit in ops {
             let insert_point = self
@@ -101,7 +101,7 @@ mod test {
     fn various_ops_work() {
         let mut crdt = Opset::new(vec![0], 2);
         // initial edit
-        crdt.edit(TestEdit {
+        crdt.insert(TestEdit {
             timestamp: 10,
             value: 1,
         });
@@ -109,7 +109,7 @@ mod test {
         assert_eq!(crdt.states.len(), 2);
 
         // edit before start
-        crdt.edit(TestEdit {
+        crdt.insert(TestEdit {
             timestamp: 5,
             value: 2,
         });
@@ -117,7 +117,7 @@ mod test {
         assert_eq!(crdt.states.len(), 2);
 
         // edit at end
-        crdt.edit(TestEdit {
+        crdt.insert(TestEdit {
             timestamp: 15,
             value: 3,
         });
@@ -125,7 +125,7 @@ mod test {
         assert_eq!(crdt.states.len(), 3);
 
         // edit in middle
-        crdt.edit(TestEdit {
+        crdt.insert(TestEdit {
             timestamp: 12,
             value: 4,
         });
@@ -133,7 +133,7 @@ mod test {
         assert_eq!(crdt.states.len(), 3);
 
         // one more edit
-        crdt.edit(TestEdit {
+        crdt.insert(TestEdit {
             timestamp: 11,
             value: 5,
         });
@@ -167,7 +167,7 @@ mod test {
                 value: 5,
             },
         ];
-        crdt.edit_from_iter(ops.into_iter());
+        crdt.insert_from_iter(ops.into_iter());
         assert_eq!(crdt.state(), &[0, 2, 1, 5, 4, 3]);
         assert_eq!(crdt.states.len(), 4);
     }

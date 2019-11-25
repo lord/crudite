@@ -25,27 +25,17 @@ pub enum Value {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Edit {
-    MapCreate {
-        /// id of new map
-        obj: Id,
-    },
     // MakeList {
     //     /// id of new list
     //     obj: Id,
     // },
+    MapCreate {
+        /// id of new map
+        obj: Id,
+    },
     TextCreate {
         /// id of new text
         obj: Id,
-    },
-    TextInsert {
-        /// Id of list to insert into.
-        parent: Id,
-        /// If new item is at start of list, `prev` is `None`.
-        prev: Option<Id>,
-        /// Id of newly created character
-        obj: Id,
-        /// Actual new character value
-        character: char,
     },
     // ListInsert {
     //     /// Id of list to insert into.
@@ -62,6 +52,16 @@ pub enum Edit {
         key: String,
         /// Item to be set. If this item had a prevous parent, it is removed from that parent.
         obj: Value,
+    },
+    TextInsert {
+        /// Id of list to insert into.
+        parent: Id,
+        /// If new item is at start of list, `prev` is `None`.
+        prev: Option<Id>,
+        /// Id of newly created character
+        obj: Id,
+        /// Actual new character value
+        character: char,
     },
 }
 
@@ -97,5 +97,13 @@ impl Doc {
         Doc {
             opset: opset::Opset::new(Tree::new(ROOT_ID), CACHE_GAP),
         }
+    }
+
+    pub fn insert(&mut self, op: DocOp) {
+        self.opset.insert(op);
+    }
+
+    pub fn insert_from_iter<I: std::iter::Iterator<Item = DocOp>>(&mut self, iter: I) {
+        self.opset.insert_from_iter(iter);
     }
 }
