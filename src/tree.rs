@@ -12,7 +12,7 @@ pub enum Value<Id> {
     // TODO number
     Null,
     Collection(Id),
-    Undefined,
+    Unset,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
