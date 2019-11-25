@@ -34,6 +34,8 @@ pub enum Edit<Id> {
         parent: Id,
         /// If new item is at start of list, `prev` is `None`.
         prev: Option<Id>,
+        /// Insertion id. This is used for deleting list items, and in other `ListInsert`'s `prev`.
+        id: Id,
         /// Item to be inserted. If this item had a prevous parent, it is removed from that parent.
         item: Value<Id>,
     },
@@ -198,7 +200,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             Edit::TextCreate {id} => {
                 self.construct_string(id.clone())
             }
-            Edit::ListInsert {parent, prev, item} => {
+            Edit::ListInsert {parent, prev, id, item} => {
                 unimplemented!()
             }
             Edit::MapInsert {parent, key, item} => {
