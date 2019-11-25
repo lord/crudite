@@ -6,6 +6,62 @@ const JOIN_LEN: usize = 511;
 const SPLIT_LEN: usize = 1024;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Value<Id> {
+    True,
+    False,
+    // TODO number
+    Null,
+    Collection(Id),
+    Undefined,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Edit<Id> {
+    ListCreate {
+        /// id of new list
+        id: Id,
+    },
+    MapCreate {
+        /// id of new map
+        id: Id,
+    },
+    TextCreate {
+        /// id of new text
+        id: Id,
+    },
+    ListInsert {
+        /// Id of list to insert into.
+        parent: Id,
+        /// If new item is at start of list, `prev` is `None`.
+        prev: Option<Id>,
+        /// Item to be inserted. If this item had a prevous parent, it is removed from that parent.
+        item: Value<Id>,
+    },
+    MapInsert {
+        /// Id of hashmap to insert into.
+        parent: Id,
+        /// Key of item in hashmap
+        key: String,
+        /// Item to be set. If this item had a prevous parent, it is removed from that parent.
+        item: Value<Id>,
+    },
+    TextInsert {
+        /// Id of list to insert into.
+        parent: Id,
+        /// If new item is at start of list, `prev` is `None`.
+        prev: Option<Id>,
+        /// Id of newly created character
+        id: Id,
+        /// Actual new character value
+        character: char,
+    },
+    Delete {
+        /// Id of character, map, text, list, etc. to delete
+        id: Id,
+    },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ValueType {
     String,
     Character,
@@ -129,6 +185,32 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             nodes: HashMap::new(),
             root: root_id,
         }
+    }
+
+    pub fn update(&mut self, edit: &Edit<Id>) {
+        match edit {
+            Edit::ListCreate {id} => {
+                unimplemented!()
+            }
+            Edit::MapCreate {id} => {
+                unimplemented!()
+            }
+            Edit::TextCreate {id} => {
+                unimplemented!()
+            }
+            Edit::ListInsert {parent, prev, item} => {
+                unimplemented!()
+            }
+            Edit::MapInsert {parent, key, item} => {
+                unimplemented!()
+            }
+            Edit::TextInsert {parent, prev, id, character} => {
+                unimplemented!()
+            }
+            Edit::Delete {id} => {
+                unimplemented!()
+            }
+        };
     }
 
     /// Creates a new `Tree` representing an empty string.
