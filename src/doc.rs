@@ -33,7 +33,7 @@ impl Ord for DocOp {
 impl opset::Operation<tree::Tree<Id>> for DocOp {
     fn apply(&self, tree: &mut tree::Tree<Id>) {
         for edit in &self.edits {
-            tree.update(edit);
+            let _ = tree.update(edit);
         }
     }
 }
