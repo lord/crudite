@@ -39,17 +39,16 @@ pub enum Edit<Id> {
         id: Id,
     },
     ListInsert {
-        /// Id of list to insert into.
-        parent: Id,
-        /// If new item is at start of list, `prev` is `None`.
-        prev: Option<Id>,
+        /// If new item is at start of list, `prev` is the parent list object. otherwise, it's a
+        /// id specified in a previous `ListInsert` operation.
+        prev: Id,
         /// Insertion id. This is used for deleting list items, and in other `ListInsert`'s `prev`.
         id: Id,
         /// Item to be inserted. If this item had a prevous parent, it is removed from that parent.
         item: Value<Id>,
     },
     MapInsert {
-        /// Id of hashmap to insert into.
+        /// Id of parent map
         parent: Id,
         /// Key of item in hashmap
         key: String,
@@ -57,10 +56,9 @@ pub enum Edit<Id> {
         item: Value<Id>,
     },
     TextInsert {
-        /// Id of list to insert into.
-        parent: Id,
-        /// If new item is at start of list, `prev` is `None`.
-        prev: Option<Id>,
+        /// If new item is at start of text, `prev` is the parent text object. otherwise, it's a
+        /// id specified in a previous `TextInsert` operation.
+        prev: Id,
         /// Id of newly created character
         id: Id,
         /// Actual new character value
@@ -193,16 +191,17 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             Edit::TextCreate {id} => {
                 self.construct_string(id.clone())
             }
-            Edit::ListInsert {parent, prev, id, item} => {
+            Edit::ListInsert {prev, id, item} => {
                 unimplemented!()
             }
             Edit::MapInsert {parent, key, item} => {
-                unimplemented!()
+                self.object_assign(parent.clone(), key.clone(), item.clone())
             }
-            Edit::TextInsert {parent, prev, id, character} => {
-                unimplemented!()
+            Edit::TextInsert {prev, id, character} => {
+                self.insert_character(prev.clone(), id.clone(), *character)
             }
             Edit::Delete {id} => {
+                // TODO NOW FIGURE OUT DELETING THIS WAY VS MAP DELETIONS
                 unimplemented!()
             }
         }
