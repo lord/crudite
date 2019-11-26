@@ -21,7 +21,7 @@ starting with simple opset crdt, no splicing
 - [x] add CRDT tests
 - [x] actual op/edit/crdt struct that combines opsets and jsontree
 - [x] add number type to json tree
-- [ ] finish update fn for Edit
+- [x] finish update fn for Edit
 - [ ] cleanup code before arrays
 - [ ] add array type to json tree
 

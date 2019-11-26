@@ -39,6 +39,10 @@ pub enum Edit<Id> {
         /// Item to be inserted. If this item had a prevous parent, it is removed from that parent.
         item: Value<Id>,
     },
+    ListDelete {
+        /// Id of character to delete
+        id: Id,
+    },
     MapCreate {
         /// id of new map
         id: Id,
@@ -185,11 +189,14 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             Edit::ListCreate {id} => {
                 unimplemented!()
             }
-            Edit::MapCreate {id} => {
-                self.construct_object(id.clone())
-            }
             Edit::ListInsert {prev, id, item} => {
                 unimplemented!()
+            }
+            Edit::ListDelete {id} => {
+                unimplemented!()
+            }
+            Edit::MapCreate {id} => {
+                self.construct_object(id.clone())
             }
             Edit::MapInsert {parent, key, item} => {
                 self.object_assign(parent.clone(), key.clone(), item.clone())
