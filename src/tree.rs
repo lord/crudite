@@ -30,14 +30,6 @@ pub enum Edit<Id> {
         /// id of new list
         id: Id,
     },
-    MapCreate {
-        /// id of new map
-        id: Id,
-    },
-    TextCreate {
-        /// id of new text
-        id: Id,
-    },
     ListInsert {
         /// If new item is at start of list, `prev` is the parent list object. otherwise, it's a
         /// id specified in a previous `ListInsert` operation.
@@ -47,6 +39,10 @@ pub enum Edit<Id> {
         /// Item to be inserted. If this item had a prevous parent, it is removed from that parent.
         item: Value<Id>,
     },
+    MapCreate {
+        /// id of new map
+        id: Id,
+    },
     MapInsert {
         /// Id of parent map
         parent: Id,
@@ -54,6 +50,10 @@ pub enum Edit<Id> {
         key: String,
         /// Item to be set. If this item had a prevous parent, it is removed from that parent.
         item: Value<Id>,
+    },
+    TextCreate {
+        /// id of new text
+        id: Id,
     },
     TextInsert {
         /// If new item is at start of text, `prev` is the parent text object. otherwise, it's a
@@ -64,8 +64,8 @@ pub enum Edit<Id> {
         /// Actual new character value
         character: char,
     },
-    Delete {
-        /// Id of character, map, text, list, etc. to delete
+    TextDelete {
+        /// Id of character to delete
         id: Id,
     },
 }
@@ -188,21 +188,20 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             Edit::MapCreate {id} => {
                 self.construct_object(id.clone())
             }
-            Edit::TextCreate {id} => {
-                self.construct_string(id.clone())
-            }
             Edit::ListInsert {prev, id, item} => {
                 unimplemented!()
             }
             Edit::MapInsert {parent, key, item} => {
                 self.object_assign(parent.clone(), key.clone(), item.clone())
             }
+            Edit::TextCreate {id} => {
+                self.construct_string(id.clone())
+            }
             Edit::TextInsert {prev, id, character} => {
                 self.insert_character(prev.clone(), id.clone(), *character)
             }
-            Edit::Delete {id} => {
-                // TODO NOW FIGURE OUT DELETING THIS WAY VS MAP DELETIONS
-                unimplemented!()
+            Edit::TextDelete {id} => {
+                self.delete_character(id.clone())
             }
         }
     }
