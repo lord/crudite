@@ -186,13 +186,13 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
 
     pub fn update(&mut self, edit: &Edit<Id>) -> Result<(), TreeError> {
         match edit {
-            Edit::ListCreate {id} => {
+            Edit::ListCreate {id: _} => {
                 unimplemented!()
             }
-            Edit::ListInsert {prev, id, item} => {
+            Edit::ListInsert {prev: _, id: _, item: _} => {
                 unimplemented!()
             }
-            Edit::ListDelete {id} => {
+            Edit::ListDelete {id: _} => {
                 unimplemented!()
             }
             Edit::MapCreate {id} => {
@@ -470,30 +470,36 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     /// If either `segment` or the next node are less than `JOIN_LEN`, and together they are
     /// less than `SPLIT_LEN`, then this function joins them together. In all other cases, it is a
     /// no-op.
-    fn consider_join(&mut self, segment: NodeId) {
-        let (segment_len, next) = match &self.nodes[&segment].data {
-            NodeData::StringSegment { ids, next, .. } => (ids.len(), *next),
-            NodeData::String { .. } => return, // abort if this is off the edge of a string
+    fn consider_join(&mut self, segment: NodeId, rightward: bool) {
+        let (left, right) = match (&self.nodes[&segment].data, rightward) {
+            (NodeData::String { .. }, _) => return, // abort if this is off the edge of a string
+            (NodeData::StringSegment { ids, next, .. }, true) => (segment, *next),
+            (NodeData::StringSegment { ids, prev, .. }, false) => (*prev, segment),
             _ => panic!("consider_join called on non-segment node"),
         };
-        let next_len = match &self.nodes[&next].data {
+        let left_len = match &self.nodes[&left].data {
             NodeData::StringSegment { ids, .. } => ids.len(),
             NodeData::String { .. } => return, // abort if this is off the edge of a string
             _ => panic!("consider_join called on non-segment node"),
         };
-        if segment_len >= JOIN_LEN || next_len >= JOIN_LEN || segment_len + next_len >= SPLIT_LEN {
+        let right_len = match &self.nodes[&right].data {
+            NodeData::StringSegment { ids, .. } => ids.len(),
+            NodeData::String { .. } => return,
+            _ => panic!("consider_join called on non-segment node"),
+        };
+        if left_len >= JOIN_LEN || right_len >= JOIN_LEN || left_len + right_len >= SPLIT_LEN {
             return;
         }
-        // delete `next` and merge into this
-        let deleted = self.delete_segment(next);
+        // delete `right` and merge into this
+        let deleted = self.delete_segment(right);
         let (deleted_contents, deleted_ids) = match deleted.data {
             NodeData::StringSegment { contents, ids, .. } => (contents, ids),
             _ => panic!("consider_join called on non-segment node"),
         };
         for (id, _) in &deleted_ids {
-            self.id_to_node[id] = segment;
+            self.id_to_node[id] = left;
         }
-        match &mut self.nodes[&segment].data {
+        match &mut self.nodes[&left].data {
             NodeData::StringSegment { contents, ids, .. } => {
                 ids.extend(
                     deleted_ids
@@ -506,18 +512,17 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         }
     }
     /// If `segment` is greater than `SPLIT_LEN`, we'll split it into two pieces. This recurses on
-    /// the children, further splitting them if they're still too long.
+    /// the children, further splitting them if they're still too long. Returns the leftmost and
+    /// rightmost of the new segments; if no split occured, these will both still be `segment`.
     // TODO this could probably be sped up to instantly segment a very long node into `n` children.
-    // TODO this should call consider_join somehow so that two short things next to each other will
-    // merge
-    fn consider_split(&mut self, segment: NodeId) {
+    fn consider_split(&mut self, segment: NodeId) -> (NodeId, NodeId) {
         let (contents, ids) = match &mut self.nodes[&segment].data {
             NodeData::StringSegment { contents, ids, .. } => (contents, ids),
-            NodeData::String { .. } => return, // abort if this is off the edge of a string
+            NodeData::String { .. } => return (segment, segment), // abort if this is off the edge of a string
             _ => panic!("consider_split called on non-segment node"),
         };
         if ids.len() <= SPLIT_LEN {
-            return;
+            return (segment, segment);
         }
         // the first index of the second segment. need to do this stuff to make sure we split
         // along a codepoint boundary
@@ -544,8 +549,9 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             }
             _ => panic!("insert_segment created wrong type of node"),
         }
-        self.consider_split(segment);
-        self.consider_split(new_node_id);
+        let (left, _) = self.consider_split(segment);
+        let (_, right) = self.consider_split(new_node_id);
+        (left, right)
     }
     fn lookup_id_index(&self, lookup_id: &Id) -> Result<(NodeId, usize), TreeError> {
         let node_id = self
@@ -643,36 +649,6 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         ))
     }
 
-    fn debug_get_string(&self, id: Id) -> Result<String, TreeError> {
-        let string_node_id = self
-            .id_to_node
-            .get(&id)
-            .expect("Id passed to debug_get_string does not exist.");
-        let node = self
-            .nodes
-            .get(&string_node_id)
-            .expect("node_id listed in id_to_node did not exist.");
-        let mut next = match &node.data {
-            NodeData::String { start, .. } => *start,
-            _ => panic!("debug_get_string called on non-string Id"),
-        };
-        let mut string = String::new();
-        while next != *string_node_id {
-            let node = self
-                .nodes
-                .get(&next)
-                .expect("node_id listed in segment adjacency did not exist.");
-            next = match &node.data {
-                NodeData::StringSegment { next, contents, .. } => {
-                    string.push_str(contents);
-                    *next
-                }
-                _ => panic!("debug_get_string called on non-string Id"),
-            };
-        }
-        Ok(string)
-    }
-
     /// Creates `character` in the tree with id `character_id`, and immediately inserts it after
     /// the character `append_id`. If `append_id` is the ID of a string instead of a character,
     /// `character` will be inserted at the beginning of the string. `append_id` may be a deleted
@@ -697,7 +673,9 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
                 }
                 ids.insert(id_list_index, (character_id.clone(), Some(string_index)));
                 self.id_to_node.insert(character_id, node_id);
-                self.consider_split(node_id);
+                let (left, right) = self.consider_split(node_id);
+                self.consider_join(left, false);
+                self.consider_join(right, false);
             }
             _ => panic!("unknown object type!!"),
         }
@@ -730,6 +708,37 @@ mod test {
     use super::*;
     #[derive(Clone, PartialEq, Eq, Hash, Debug)]
     struct MyId(usize);
+
+    fn debug_get_string(tree: &Tree<MyId>, id: MyId) -> Result<String, TreeError> {
+        let string_node_id = tree
+            .id_to_node
+            .get(&id)
+            .expect("Id passed to debug_get_string does not exist.");
+        let node = tree
+            .nodes
+            .get(&string_node_id)
+            .expect("node_id listed in id_to_node did not exist.");
+        let mut next = match &node.data {
+            NodeData::String { start, .. } => *start,
+            _ => panic!("debug_get_string called on non-string Id"),
+        };
+        let mut string = String::new();
+        while next != *string_node_id {
+            let node = tree
+                .nodes
+                .get(&next)
+                .expect("node_id listed in segment adjacency did not exist.");
+            next = match &node.data {
+                NodeData::StringSegment { next, contents, .. } => {
+                    string.push_str(contents);
+                    *next
+                }
+                _ => panic!("debug_get_string called on non-string Id"),
+            };
+        }
+        Ok(string)
+    }
+
 
     fn num_to_char(i: usize) -> char {
         match i % 5 {
@@ -829,29 +838,29 @@ mod test {
     fn simple_delete() {
         let mut tree = Tree::new_with_string_root(MyId(0));
         tree.insert_character(MyId(0), MyId(1), 'a').unwrap();
-        assert_eq!(tree.debug_get_string(MyId(0)), Ok("a".to_string()));
+        assert_eq!(debug_get_string(&tree, MyId(0)), Ok("a".to_string()));
         tree.insert_character(MyId(1), MyId(2), 'b').unwrap();
-        assert_eq!(tree.debug_get_string(MyId(0)), Ok("ab".to_string()));
+        assert_eq!(debug_get_string(&tree, MyId(0)), Ok("ab".to_string()));
         tree.delete_character(MyId(1)).unwrap();
-        assert_eq!(tree.debug_get_string(MyId(0)), Ok("b".to_string()));
+        assert_eq!(debug_get_string(&tree, MyId(0)), Ok("b".to_string()));
         // test delete same char; should be noop
         tree.delete_character(MyId(1)).unwrap();
-        assert_eq!(tree.debug_get_string(MyId(0)), Ok("b".to_string()));
+        assert_eq!(debug_get_string(&tree, MyId(0)), Ok("b".to_string()));
         tree.delete_character(MyId(2)).unwrap();
-        assert_eq!(tree.debug_get_string(MyId(0)), Ok("".to_string()));
+        assert_eq!(debug_get_string(&tree, MyId(0)), Ok("".to_string()));
     }
 
     #[test]
     fn insert_character() {
         let mut tree = Tree::new_with_string_root(MyId(0));
         tree.insert_character(MyId(0), MyId(1), 'a').unwrap();
-        assert_eq!(tree.debug_get_string(MyId(0)), Ok("a".to_string()));
+        assert_eq!(debug_get_string(&tree, MyId(0)), Ok("a".to_string()));
         tree.insert_character(MyId(1), MyId(2), 'b').unwrap();
-        assert_eq!(tree.debug_get_string(MyId(0)), Ok("ab".to_string()));
+        assert_eq!(debug_get_string(&tree, MyId(0)), Ok("ab".to_string()));
         tree.insert_character(MyId(1), MyId(3), 'c').unwrap();
-        assert_eq!(tree.debug_get_string(MyId(0)), Ok("acb".to_string()));
+        assert_eq!(debug_get_string(&tree, MyId(0)), Ok("acb".to_string()));
         tree.insert_character(MyId(0), MyId(4), 'd').unwrap();
-        assert_eq!(tree.debug_get_string(MyId(0)), Ok("dacb".to_string()));
+        assert_eq!(debug_get_string(&tree, MyId(0)), Ok("dacb".to_string()));
         for i in 5..10000 {
             tree.insert_character(MyId(i - 1), MyId(i), num_to_char(i))
                 .unwrap();
@@ -859,7 +868,7 @@ mod test {
 
         let long_insert = (5..10000).map(|i| num_to_char(i)).collect::<String>();
         assert_eq!(
-            tree.debug_get_string(MyId(0)),
+            debug_get_string(&tree, MyId(0)),
             Ok(format!("d{}acb", long_insert))
         );
     }

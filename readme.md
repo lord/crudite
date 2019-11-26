@@ -23,6 +23,9 @@ starting with simple opset crdt, no splicing
 - [x] add number type to json tree
 - [x] finish update fn for Edit
 - [ ] cleanup code before arrays
+  - [ ] test for character deletion, make sure segments merge
+  - [ ] check case where segment can't merge but reaches zero length
+  - [ ] move segment code into separate module, test segments properly
 - [ ] add array type to json tree
 
 ## future work
