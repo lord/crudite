@@ -473,8 +473,8 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     fn consider_join(&mut self, segment: NodeId, rightward: bool) {
         let (left, right) = match (&self.nodes[&segment].data, rightward) {
             (NodeData::String { .. }, _) => return, // abort if this is off the edge of a string
-            (NodeData::StringSegment { ids, next, .. }, true) => (segment, *next),
-            (NodeData::StringSegment { ids, prev, .. }, false) => (*prev, segment),
+            (NodeData::StringSegment { next, .. }, true) => (segment, *next),
+            (NodeData::StringSegment { prev, .. }, false) => (*prev, segment),
             _ => panic!("consider_join called on non-segment node"),
         };
         let left_len = match &self.nodes[&left].data {
@@ -761,12 +761,12 @@ mod test {
         assert_eq!(Ok(None), tree.get_parent(MyId(0)));
 
         tree.construct_object(MyId(1)).unwrap();
-        tree.object_assign(MyId(0), "my key".to_string(), Value::Collection(MyId(1)));
+        tree.object_assign(MyId(0), "my key".to_string(), Value::Collection(MyId(1))).unwrap();
 
         tree.construct_string(MyId(2)).unwrap();
-        tree.object_assign(MyId(1), "my key 2".to_string(), Value::Collection(MyId(2)));
+        tree.object_assign(MyId(1), "my key 2".to_string(), Value::Collection(MyId(2))).unwrap();
 
-        tree.insert_character(MyId(2), MyId(3), 'a');
+        tree.insert_character(MyId(2), MyId(3), 'a').unwrap();
 
         // {"my key": {"my key 2": "a"}}
         // ^          ^            ^^
@@ -783,7 +783,7 @@ mod test {
         assert_eq!(Ok(Value::Collection(MyId(2))), tree.object_get(MyId(1), "my key 2"));
         assert_eq!(Ok(Value::Unset), tree.object_get(MyId(0), "my key 2"));
 
-        tree.object_assign(MyId(0), "my key".to_string(), Value::True);
+        tree.object_assign(MyId(0), "my key".to_string(), Value::True).unwrap();
 
         // {"my key": true}
         // ^          ^
@@ -798,7 +798,7 @@ mod test {
         assert_eq!(Err(TreeError::UnknownId), tree.get_parent(MyId(3)));
         assert_eq!(Ok(Value::True), tree.object_get(MyId(0), "my key"));
 
-        tree.object_assign(MyId(0), "my key".to_string(), Value::Unset);
+        tree.object_assign(MyId(0), "my key".to_string(), Value::Unset).unwrap();
 
         // {}
         // ^
