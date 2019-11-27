@@ -851,7 +851,7 @@ mod test {
     }
 
     #[test]
-    fn insert_character() {
+    fn insert_and_delete_characters() {
         let mut tree = Tree::new_with_string_root(MyId(0));
         tree.insert_character(MyId(0), MyId(1), 'a').unwrap();
         assert_eq!(debug_get_string(&tree, MyId(0)), Ok("a".to_string()));
@@ -870,6 +870,22 @@ mod test {
         assert_eq!(
             debug_get_string(&tree, MyId(0)),
             Ok(format!("d{}acb", long_insert))
+        );
+
+        for i in 5..10000 {
+            tree.delete_character(MyId(i)).unwrap();
+        }
+
+        assert_eq!(
+            debug_get_string(&tree, MyId(0)),
+            Ok(format!("dacb"))
+        );
+
+        eprintln!("{:?}", &tree);
+
+        assert_eq!(
+            tree.nodes.len(),
+            1,
         );
     }
 }
