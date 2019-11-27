@@ -398,136 +398,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         Ok(val)
     }
 
-    /// Deletes a segment with node id `usize`, returns deleted NodeData and new Tree. Caller is
-    /// responsible for updating `id_to_node`, but this takes care of updating `next`, `prev`, or
-    /// if necessary, `start` and `end`. If this is the only segment in the list, it will panic.
-    fn delete_segment(&mut self, segment: NodeId) -> Node<Id> {
-        let segment_data = self.nodes.remove(&segment).expect("segment did not exist");
-        let (old_prev, old_next) = match &segment_data.data {
-            NodeData::StringSegment { prev, next, .. } => (*prev, *next),
-            _ => panic!("delete_segment called on non-segment node"),
-        };
-        if old_prev == old_next {
-            // TODO should this actually panic?
-            panic!("attempted to delete only segment in list");
-        }
-        match &mut self.nodes[&old_prev].data {
-            NodeData::StringSegment { next, .. } => *next = old_next,
-            NodeData::String { start, .. } => *start = old_next,
-            _ => panic!("delete_segment called on non-segment node"),
-        }
-        match &mut self.nodes[&old_next].data {
-            NodeData::StringSegment { prev, .. } => *prev = old_prev,
-            NodeData::String { end, .. } => *end = old_prev,
-            _ => panic!("delete_segment called on non-segment node"),
-        }
-        segment_data
-    }
 
-    // Inserts a new, empty segment after `append_to`, and returns the usize of the new node.
-    fn insert_segment(&mut self, append_to: NodeId) -> NodeId {
-        let new_id = self.next_id();
-        let (parent, prev, next) = match &mut self.nodes[&append_to] {
-            Node {
-                parent,
-                data: NodeData::StringSegment { next, .. },
-            } => {
-                let old_next = *next;
-                *next = new_id;
-                (*parent, append_to, old_next)
-            }
-            Node {
-                parent: _,
-                data: NodeData::String { start, .. },
-            } => {
-                let old_start = *start;
-                *start = new_id;
-                (Some(append_to), append_to, old_start)
-            }
-            _ => panic!("insert_segment called on non-segment node"),
-        };
-        let node = Node {
-            parent,
-            data: NodeData::StringSegment {
-                prev,
-                next,
-                contents: String::new(),
-                ids: Vec::new(),
-            },
-        };
-        self.nodes.insert(new_id, node);
-        match &mut self.nodes[&next].data {
-            NodeData::StringSegment { prev, .. } => {
-                *prev = new_id;
-            }
-            NodeData::String { end, .. } => {
-                *end = new_id;
-            }
-            _ => panic!("insert_segment called on non-segment node"),
-        }
-        new_id
-    }
-
-    fn lookup_id_index(&self, lookup_id: &Id) -> Result<(NodeId, usize), TreeError> {
-        let node_id = self
-            .id_to_node
-            .get(&lookup_id)
-            .ok_or(TreeError::UnknownId)?;
-        let node = self
-            .nodes
-            .get(&node_id)
-            .expect("node_id listed in id_to_node did not exist.");
-        let ids = match &node.data {
-            NodeData::StringSegment { ids, .. } => ids,
-            _ => return Err(TreeError::UnexpectedNodeType),
-        };
-
-        for (i, (id, _)) in ids.iter().enumerate() {
-            if id == lookup_id {
-                return Ok((*node_id, i));
-                // don't check for string index until next iteration of loop; we want the *next*
-                // char index to be the insertion point, not this one
-            }
-        }
-        panic!("couldn't find id in list");
-    }
-
-    /// From a character id, looks up the `(containing segment id, character index, id list index)`
-    /// that an appended character would need to be inserted at
-    fn lookup_insertion_point(&self, lookup_id: &Id) -> Result<(NodeId, usize, usize), TreeError> {
-        let node_id = self
-            .id_to_node
-            .get(&lookup_id)
-            .ok_or(TreeError::UnknownId)?;
-        let node = self
-            .nodes
-            .get(&node_id)
-            .expect("node_id listed in id_to_node did not exist.");
-        let (ids, contents) = match &node.data {
-            NodeData::StringSegment { ids, contents, .. } => (ids, contents),
-            // if Id is a string, this char corresponds with the first index in the first segment
-            NodeData::String { start, .. } => return Ok((*start, 0, 0)),
-            _ => return Err(TreeError::UnexpectedNodeType),
-        };
-
-        let mut id_list_index_opt = None;
-        for (i, (id, string_index_opt)) in ids.iter().enumerate() {
-            if let Some(id_list_index) = id_list_index_opt {
-                if let Some(string_index) = string_index_opt {
-                    return Ok((*node_id, *string_index, id_list_index));
-                }
-            }
-            if id == lookup_id {
-                id_list_index_opt = Some(i + 1);
-                // don't check for string index until next iteration of loop; we want the *next*
-                // char index to be the insertion point, not this one
-            }
-        }
-        if let Some(id_list_index) = id_list_index_opt {
-            return Ok((*node_id, contents.len(), id_list_index));
-        }
-        panic!("id not found in segment id list");
-    }
 
     /// Gets the type of `Id`.
     pub fn get_type(&self, id: Id) -> Result<NodeType, TreeError> {
@@ -574,46 +445,12 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         character_id: Id,
         character: char,
     ) -> Result<(), TreeError> {
-        if self.id_to_node.contains_key(&character_id) {
-            return Err(TreeError::DuplicateId);
-        }
-        let (node_id, string_index, id_list_index) = self.lookup_insertion_point(&append_id)?;
-        match &mut self.nodes[&node_id].data {
-            NodeData::StringSegment { ids, contents, .. } => {
-                contents.insert(string_index, character);
-                for (_, index_opt) in ids.iter_mut().skip(id_list_index) {
-                    if let Some(index) = index_opt {
-                        *index += character.len_utf8();
-                    }
-                }
-                ids.insert(id_list_index, (character_id.clone(), Some(string_index)));
-                self.id_to_node.insert(character_id, node_id);
-                let (left, right) = sequence::consider_split(self, node_id);
-                sequence::consider_join(self, left, false);
-                sequence::consider_join(self, right, false);
-            }
-            _ => panic!("unknown object type!!"),
-        }
-        Ok(())
+        sequence::insert_character(self, append_id, character_id, character)
     }
 
     /// Deletes the character with ID `char_id`. A tombstone is left in the string, allowing future
     /// `insert_character` calls to reference this `char_id` as their `append_id`.
     pub fn delete_character(&mut self, char_id: Id) -> Result<(), TreeError> {
-        let (node_id, id_list_index) = self.lookup_id_index(&char_id)?;
-        match &mut self.nodes[&node_id].data {
-            NodeData::StringSegment { ids, contents, .. } => {
-                if let Some(old_byte_index) = ids[id_list_index].1.take() {
-                    let deleted_char = contents.remove(old_byte_index);
-                    for (_, byte_idx) in ids.iter_mut().skip(id_list_index) {
-                        if let Some(byte_idx) = byte_idx {
-                            *byte_idx -= deleted_char.len_utf8();
-                        }
-                    }
-                }
-            }
-            _ => panic!("unknown object type!!"),
-        }
-        Ok(())
+        sequence::delete_character(self, char_id)
     }
 }
