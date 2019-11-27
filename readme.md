@@ -26,6 +26,7 @@ starting with simple opset crdt, no splicing
   - [ ] test for character deletion, make sure segments merge
   - [ ] check case where segment can't merge but reaches zero length
   - [ ] move segment code into separate module, test segments properly
+  - [ ] don't actually need to delete segments until we have garbage collection
 - [ ] add array type to json tree
 - [ ] bad IDs are currently ignored by `DocOp`'s `apply`. is this right? how can we prevent malicious reuse of ids? central server validation?
 
