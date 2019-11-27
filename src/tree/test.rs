@@ -32,7 +32,6 @@ fn debug_get_string(tree: &Tree<MyId>, id: MyId) -> Result<String, TreeError> {
     Ok(string)
 }
 
-
 fn num_to_char(i: usize) -> char {
     match i % 5 {
         0 => '0',
@@ -54,10 +53,12 @@ fn object_assignment() {
     assert_eq!(Ok(None), tree.get_parent(MyId(0)));
 
     tree.construct_object(MyId(1)).unwrap();
-    tree.object_assign(MyId(0), "my key".to_string(), Value::Collection(MyId(1))).unwrap();
+    tree.object_assign(MyId(0), "my key".to_string(), Value::Collection(MyId(1)))
+        .unwrap();
 
     tree.construct_string(MyId(2)).unwrap();
-    tree.object_assign(MyId(1), "my key 2".to_string(), Value::Collection(MyId(2))).unwrap();
+    tree.object_assign(MyId(1), "my key 2".to_string(), Value::Collection(MyId(2)))
+        .unwrap();
 
     tree.insert_character(MyId(2), MyId(3), 'a').unwrap();
 
@@ -72,11 +73,18 @@ fn object_assignment() {
     assert_eq!(Ok(Some(MyId(0))), tree.get_parent(MyId(1)));
     assert_eq!(Ok(Some(MyId(1))), tree.get_parent(MyId(2)));
     assert_eq!(Ok(Some(MyId(2))), tree.get_parent(MyId(3)));
-    assert_eq!(Ok(Value::Collection(MyId(1))), tree.object_get(MyId(0), "my key"));
-    assert_eq!(Ok(Value::Collection(MyId(2))), tree.object_get(MyId(1), "my key 2"));
+    assert_eq!(
+        Ok(Value::Collection(MyId(1))),
+        tree.object_get(MyId(0), "my key")
+    );
+    assert_eq!(
+        Ok(Value::Collection(MyId(2))),
+        tree.object_get(MyId(1), "my key 2")
+    );
     assert_eq!(Ok(Value::Unset), tree.object_get(MyId(0), "my key 2"));
 
-    tree.object_assign(MyId(0), "my key".to_string(), Value::True).unwrap();
+    tree.object_assign(MyId(0), "my key".to_string(), Value::True)
+        .unwrap();
 
     // {"my key": true}
     // ^          ^
@@ -91,7 +99,8 @@ fn object_assignment() {
     assert_eq!(Err(TreeError::UnknownId), tree.get_parent(MyId(3)));
     assert_eq!(Ok(Value::True), tree.object_get(MyId(0), "my key"));
 
-    tree.object_assign(MyId(0), "my key".to_string(), Value::Unset).unwrap();
+    tree.object_assign(MyId(0), "my key".to_string(), Value::Unset)
+        .unwrap();
 
     // {}
     // ^
@@ -169,8 +178,5 @@ fn insert_and_delete_characters() {
         tree.delete_character(MyId(i)).unwrap();
     }
 
-    assert_eq!(
-        debug_get_string(&tree, MyId(0)),
-        Ok(format!("dacb"))
-    );
+    assert_eq!(debug_get_string(&tree, MyId(0)), Ok(format!("dacb")));
 }

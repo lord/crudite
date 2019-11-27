@@ -1,6 +1,6 @@
-use std::cmp::Ordering;
 use crate::opset;
 use crate::tree;
+use std::cmp::Ordering;
 
 const CACHE_GAP: usize = 10;
 
@@ -9,9 +9,7 @@ pub struct Id {
     pub num: usize,
 }
 
-pub const ROOT_ID: Id = Id {
-    num: 0,
-};
+pub const ROOT_ID: Id = Id { num: 0 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DocOp {

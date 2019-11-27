@@ -187,30 +187,24 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
 
     pub fn update(&mut self, edit: &Edit<Id>) -> Result<(), TreeError> {
         match edit {
-            Edit::ListCreate {id: _} => {
-                unimplemented!()
-            }
-            Edit::ListInsert {prev: _, id: _, item: _} => {
-                unimplemented!()
-            }
-            Edit::ListDelete {id: _} => {
-                unimplemented!()
-            }
-            Edit::MapCreate {id} => {
-                self.construct_object(id.clone())
-            }
-            Edit::MapInsert {parent, key, item} => {
+            Edit::ListCreate { id: _ } => unimplemented!(),
+            Edit::ListInsert {
+                prev: _,
+                id: _,
+                item: _,
+            } => unimplemented!(),
+            Edit::ListDelete { id: _ } => unimplemented!(),
+            Edit::MapCreate { id } => self.construct_object(id.clone()),
+            Edit::MapInsert { parent, key, item } => {
                 self.object_assign(parent.clone(), key.clone(), item.clone())
             }
-            Edit::TextCreate {id} => {
-                self.construct_string(id.clone())
-            }
-            Edit::TextInsert {prev, id, character} => {
-                self.insert_character(prev.clone(), id.clone(), *character)
-            }
-            Edit::TextDelete {id} => {
-                self.delete_character(id.clone())
-            }
+            Edit::TextCreate { id } => self.construct_string(id.clone()),
+            Edit::TextInsert {
+                prev,
+                id,
+                character,
+            } => self.insert_character(prev.clone(), id.clone(), *character),
+            Edit::TextDelete { id } => self.delete_character(id.clone()),
         }
     }
 
@@ -294,8 +288,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     /// `delete_segment`.
     fn delete(&mut self, item: NodeId) {
         match self.nodes[&item].data {
-            NodeData::Object { .. }
-            | NodeData::String { .. } => { /* do nothing */ }
+            NodeData::Object { .. } | NodeData::String { .. } => { /* do nothing */ }
             _ => panic!("attempted to delete invalid type"),
         }
         let mut queue = vec![item];
@@ -308,9 +301,11 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
                 NodeData::Object { id, items } => {
                     for (_, val) in items {
                         match val {
-                            Child::Collection(id) => {queue.push(id);},
+                            Child::Collection(id) => {
+                                queue.push(id);
+                            }
                             // do nothing for other values; don't have any subchildren to delete
-                            Child::True | Child::False | Child::Null | Child::Int(_) => {},
+                            Child::True | Child::False | Child::Null | Child::Int(_) => {}
                         }
                     }
                     self.id_to_node.remove(&id).unwrap();
@@ -397,8 +392,6 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         };
         Ok(val)
     }
-
-
 
     /// Gets the type of `Id`.
     pub fn get_type(&self, id: Id) -> Result<NodeType, TreeError> {

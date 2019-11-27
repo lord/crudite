@@ -1,6 +1,6 @@
-use std::hash::Hash;
+use super::{Child, Node, NodeData, NodeId, Tree, TreeError};
 use std::fmt::Debug;
-use super::{Tree, Child, NodeData, NodeId, TreeError, Node};
+use std::hash::Hash;
 
 const JOIN_LEN: usize = 511;
 const SPLIT_LEN: usize = 1024;
@@ -40,7 +40,10 @@ pub(super) fn insert_character<Id: Hash + Clone + Eq + Debug>(
 
 /// Deletes the character with ID `char_id`. A tombstone is left in the string, allowing future
 /// `insert_character` calls to reference this `char_id` as their `append_id`.
-pub(super) fn delete_character<Id: Hash + Clone + Eq + Debug>(tree: &mut Tree<Id>, char_id: Id) -> Result<(), TreeError> {
+pub(super) fn delete_character<Id: Hash + Clone + Eq + Debug>(
+    tree: &mut Tree<Id>,
+    char_id: Id,
+) -> Result<(), TreeError> {
     let (node_id, id_list_index) = lookup_id_index(tree, &char_id)?;
     match &mut tree.nodes[&node_id].data {
         NodeData::StringSegment { ids, contents, .. } => {
@@ -128,7 +131,10 @@ fn delete_segment<Id: Hash + Clone + Eq + Debug>(tree: &mut Tree<Id>, segment: N
     segment_data
 }
 
-fn lookup_id_index<Id: Hash + Clone + Eq + Debug>(tree: &Tree<Id>, lookup_id: &Id) -> Result<(NodeId, usize), TreeError> {
+fn lookup_id_index<Id: Hash + Clone + Eq + Debug>(
+    tree: &Tree<Id>,
+    lookup_id: &Id,
+) -> Result<(NodeId, usize), TreeError> {
     let node_id = tree
         .id_to_node
         .get(&lookup_id)
@@ -154,7 +160,10 @@ fn lookup_id_index<Id: Hash + Clone + Eq + Debug>(tree: &Tree<Id>, lookup_id: &I
 
 /// From a character id, looks up the `(containing segment id, character index, id list index)`
 /// that an appended character would need to be inserted at
-fn lookup_insertion_point<Id: Hash + Clone + Eq + Debug>(tree: &Tree<Id>, lookup_id: &Id) -> Result<(NodeId, usize, usize), TreeError> {
+fn lookup_insertion_point<Id: Hash + Clone + Eq + Debug>(
+    tree: &Tree<Id>,
+    lookup_id: &Id,
+) -> Result<(NodeId, usize, usize), TreeError> {
     let node_id = tree
         .id_to_node
         .get(&lookup_id)
@@ -192,7 +201,11 @@ fn lookup_insertion_point<Id: Hash + Clone + Eq + Debug>(tree: &Tree<Id>, lookup
 /// If either `segment` or the next node are less than `JOIN_LEN`, and together they are
 /// less than `SPLIT_LEN`, then this function joins them together. In all other cases, it is a
 /// no-op.
-fn consider_join<Id: Hash + Clone + Eq + Debug>(tree: &mut Tree<Id>, segment: NodeId, rightward: bool) {
+fn consider_join<Id: Hash + Clone + Eq + Debug>(
+    tree: &mut Tree<Id>,
+    segment: NodeId,
+    rightward: bool,
+) {
     let (left, right) = match (&tree.nodes[&segment].data, rightward) {
         (NodeData::String { .. }, _) => return, // abort if this is off the edge of a string
         (NodeData::StringSegment { next, .. }, true) => (segment, *next),
@@ -238,7 +251,10 @@ fn consider_join<Id: Hash + Clone + Eq + Debug>(tree: &mut Tree<Id>, segment: No
 /// the children, further splitting them if they're still too long. Returns the leftmost and
 /// rightmost of the new segments; if no split occured, these will both still be `segment`.
 // TODO this could probably be sped up to instantly segment a very long node into `n` children.
-fn consider_split<Id: Hash + Clone + Eq + Debug>(tree: &mut Tree<Id>, segment: NodeId) -> (NodeId, NodeId) {
+fn consider_split<Id: Hash + Clone + Eq + Debug>(
+    tree: &mut Tree<Id>,
+    segment: NodeId,
+) -> (NodeId, NodeId) {
     let (contents, ids) = match &mut tree.nodes[&segment].data {
         NodeData::StringSegment { contents, ids, .. } => (contents, ids),
         NodeData::String { .. } => return (segment, segment), // abort if this is off the edge of a string
