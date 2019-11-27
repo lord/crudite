@@ -6,17 +6,17 @@ const CACHE_GAP: usize = 10;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Id {
-    num: usize,
+    pub num: usize,
 }
 
-const ROOT_ID: Id = Id {
+pub const ROOT_ID: Id = Id {
     num: 0,
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DocOp {
-    timestamp: u64,
-    edits: Vec<tree::Edit<Id>>,
+    pub timestamp: u64,
+    pub edits: Vec<tree::Edit<Id>>,
 }
 impl PartialOrd for DocOp {
     fn partial_cmp(&self, other: &DocOp) -> Option<Ordering> {
