@@ -1,4 +1,4 @@
-use super::{Child, Node, NodeData, NodeId, Tree, TreeError};
+use crate::tree as temp;
 use std::fmt::Debug;
 use std::hash::Hash;
 
@@ -27,22 +27,41 @@ pub trait Sequence {
     fn set_unit_id_to_node_id(&self, unit_id: Self::UnitId, node_id: Option<Self::NodeId>);
 }
 
+// impl <Id: Hash + Clone + Eq + Debug> Sequence for &mut temp::Tree<Id> {
+//     type Unit = char;
+//     type UnitId = NodeId;
+//     type NodeId = Node;
+
+//     fn segment_create(&self) -> Self::NodeId;
+//     fn segment_delete(&self, id: Self::NodeId);
+//     fn node_is_segment(&self, id: Self::NodeId) -> bool;
+//     /// For segment, (prev, next). For sequence root, (end, start)
+//     fn node_adjacent(&mut self, id: Self::NodeId) -> (&mut Self::NodeId, &mut Self::NodeId);
+
+//     fn segment_unit_len(&self, id: Self::NodeId);
+//     fn segment_unit_insert(&self, id: Self::NodeId, index: usize, item: Self::Unit);
+//     fn segment_unit_remove(&self, id: Self::NodeId);
+
+//     fn unit_id_to_node_id(&self, unit_id: Self::UnitId) -> Option<Self::NodeId>;
+//     fn set_unit_id_to_node_id(&self, unit_id: Self::UnitId, node_id: Option<Self::NodeId>);
+// }
+
 /// Creates `character` in the tree with id `character_id`, and immediately inserts it after
 /// the character `append_id`. If `append_id` is the ID of a string instead of a character,
 /// `character` will be inserted at the beginning of the string. `append_id` may be a deleted
 /// character, if the tombstone is still in the tree.
 pub(super) fn insert_character<Id: Hash + Clone + Eq + Debug>(
-    tree: &mut Tree<Id>,
+    tree: &mut temp::Tree<Id>,
     append_id: Id,
     character_id: Id,
     character: char,
-) -> Result<(), TreeError> {
+) -> Result<(), temp::TreeError> {
     if tree.id_to_node.contains_key(&character_id) {
-        return Err(TreeError::DuplicateId);
+        return Err(temp::TreeError::DuplicateId);
     }
     let (node_id, string_index, id_list_index) = lookup_insertion_point(tree, &append_id)?;
     match &mut tree.nodes[&node_id].data {
-        NodeData::StringSegment { ids, contents, .. } => {
+        temp::NodeData::StringSegment { ids, contents, .. } => {
             contents.insert(string_index, character);
             for (_, index_opt) in ids.iter_mut().skip(id_list_index) {
                 if let Some(index) = index_opt {
@@ -63,12 +82,12 @@ pub(super) fn insert_character<Id: Hash + Clone + Eq + Debug>(
 /// Deletes the character with ID `char_id`. A tombstone is left in the string, allowing future
 /// `insert_character` calls to reference this `char_id` as their `append_id`.
 pub(super) fn delete_character<Id: Hash + Clone + Eq + Debug>(
-    tree: &mut Tree<Id>,
+    tree: &mut temp::Tree<Id>,
     char_id: Id,
-) -> Result<(), TreeError> {
+) -> Result<(), temp::TreeError> {
     let (node_id, id_list_index) = lookup_id_index(tree, &char_id)?;
     match &mut tree.nodes[&node_id].data {
-        NodeData::StringSegment { ids, contents, .. } => {
+        temp::NodeData::StringSegment { ids, contents, .. } => {
             if let Some(old_byte_index) = ids[id_list_index].1.take() {
                 let deleted_char = contents.remove(old_byte_index);
                 for (_, byte_idx) in ids.iter_mut().skip(id_list_index) {
@@ -84,20 +103,20 @@ pub(super) fn delete_character<Id: Hash + Clone + Eq + Debug>(
 }
 
 // Inserts a new, empty segment after `append_to`, and returns the usize of the new node.
-fn insert_segment<Id: Hash + Clone + Eq + Debug>(tree: &mut Tree<Id>, append_to: NodeId) -> NodeId {
+fn insert_segment<Id: Hash + Clone + Eq + Debug>(tree: &mut temp::Tree<Id>, append_to: temp::NodeId) -> temp::NodeId {
     let new_id = tree.next_id();
     let (parent, prev, next) = match &mut tree.nodes[&append_to] {
-        Node {
+        temp::Node {
             parent,
-            data: NodeData::StringSegment { next, .. },
+            data: temp::NodeData::StringSegment { next, .. },
         } => {
             let old_next = *next;
             *next = new_id;
             (*parent, append_to, old_next)
         }
-        Node {
+        temp::Node {
             parent: _,
-            data: NodeData::String { start, .. },
+            data: temp::NodeData::String { start, .. },
         } => {
             let old_start = *start;
             *start = new_id;
@@ -105,9 +124,9 @@ fn insert_segment<Id: Hash + Clone + Eq + Debug>(tree: &mut Tree<Id>, append_to:
         }
         _ => panic!("insert_segment called on non-segment node"),
     };
-    let node = Node {
+    let node = temp::Node {
         parent,
-        data: NodeData::StringSegment {
+        data: temp::NodeData::StringSegment {
             prev,
             next,
             contents: String::new(),
@@ -116,10 +135,10 @@ fn insert_segment<Id: Hash + Clone + Eq + Debug>(tree: &mut Tree<Id>, append_to:
     };
     tree.nodes.insert(new_id, node);
     match &mut tree.nodes[&next].data {
-        NodeData::StringSegment { prev, .. } => {
+        temp::NodeData::StringSegment { prev, .. } => {
             *prev = new_id;
         }
-        NodeData::String { end, .. } => {
+        temp::NodeData::String { end, .. } => {
             *end = new_id;
         }
         _ => panic!("insert_segment called on non-segment node"),
@@ -127,13 +146,13 @@ fn insert_segment<Id: Hash + Clone + Eq + Debug>(tree: &mut Tree<Id>, append_to:
     new_id
 }
 
-/// Deletes a segment with node id `usize`, returns deleted NodeData and new Tree. Caller is
+/// Deletes a segment with node id `usize`, returns deleted temp::NodeData and new Tree. Caller is
 /// responsible for updating `id_to_node`, but this takes care of updating `next`, `prev`, or
 /// if necessary, `start` and `end`. If this is the only segment in the list, it will panic.
-fn delete_segment<Id: Hash + Clone + Eq + Debug>(tree: &mut Tree<Id>, segment: NodeId) -> Node<Id> {
+fn delete_segment<Id: Hash + Clone + Eq + Debug>(tree: &mut temp::Tree<Id>, segment: temp::NodeId) -> temp::Node<Id> {
     let segment_data = tree.nodes.remove(&segment).expect("segment did not exist");
     let (old_prev, old_next) = match &segment_data.data {
-        NodeData::StringSegment { prev, next, .. } => (*prev, *next),
+        temp::NodeData::StringSegment { prev, next, .. } => (*prev, *next),
         _ => panic!("delete_segment called on non-segment node"),
     };
     if old_prev == old_next {
@@ -141,33 +160,33 @@ fn delete_segment<Id: Hash + Clone + Eq + Debug>(tree: &mut Tree<Id>, segment: N
         panic!("attempted to delete only segment in list");
     }
     match &mut tree.nodes[&old_prev].data {
-        NodeData::StringSegment { next, .. } => *next = old_next,
-        NodeData::String { start, .. } => *start = old_next,
+        temp::NodeData::StringSegment { next, .. } => *next = old_next,
+        temp::NodeData::String { start, .. } => *start = old_next,
         _ => panic!("delete_segment called on non-segment node"),
     }
     match &mut tree.nodes[&old_next].data {
-        NodeData::StringSegment { prev, .. } => *prev = old_prev,
-        NodeData::String { end, .. } => *end = old_prev,
+        temp::NodeData::StringSegment { prev, .. } => *prev = old_prev,
+        temp::NodeData::String { end, .. } => *end = old_prev,
         _ => panic!("delete_segment called on non-segment node"),
     }
     segment_data
 }
 
 fn lookup_id_index<Id: Hash + Clone + Eq + Debug>(
-    tree: &Tree<Id>,
+    tree: &temp::Tree<Id>,
     lookup_id: &Id,
-) -> Result<(NodeId, usize), TreeError> {
+) -> Result<(temp::NodeId, usize), temp::TreeError> {
     let node_id = tree
         .id_to_node
         .get(&lookup_id)
-        .ok_or(TreeError::UnknownId)?;
+        .ok_or(temp::TreeError::UnknownId)?;
     let node = tree
         .nodes
         .get(&node_id)
         .expect("node_id listed in id_to_node did not exist.");
     let ids = match &node.data {
-        NodeData::StringSegment { ids, .. } => ids,
-        _ => return Err(TreeError::UnexpectedNodeType),
+        temp::NodeData::StringSegment { ids, .. } => ids,
+        _ => return Err(temp::TreeError::UnexpectedNodeType),
     };
 
     for (i, (id, _)) in ids.iter().enumerate() {
@@ -183,22 +202,22 @@ fn lookup_id_index<Id: Hash + Clone + Eq + Debug>(
 /// From a character id, looks up the `(containing segment id, character index, id list index)`
 /// that an appended character would need to be inserted at
 fn lookup_insertion_point<Id: Hash + Clone + Eq + Debug>(
-    tree: &Tree<Id>,
+    tree: &temp::Tree<Id>,
     lookup_id: &Id,
-) -> Result<(NodeId, usize, usize), TreeError> {
+) -> Result<(temp::NodeId, usize, usize), temp::TreeError> {
     let node_id = tree
         .id_to_node
         .get(&lookup_id)
-        .ok_or(TreeError::UnknownId)?;
+        .ok_or(temp::TreeError::UnknownId)?;
     let node = tree
         .nodes
         .get(&node_id)
         .expect("node_id listed in id_to_node did not exist.");
     let (ids, contents) = match &node.data {
-        NodeData::StringSegment { ids, contents, .. } => (ids, contents),
+        temp::NodeData::StringSegment { ids, contents, .. } => (ids, contents),
         // if Id is a string, this char corresponds with the first index in the first segment
-        NodeData::String { start, .. } => return Ok((*start, 0, 0)),
-        _ => return Err(TreeError::UnexpectedNodeType),
+        temp::NodeData::String { start, .. } => return Ok((*start, 0, 0)),
+        _ => return Err(temp::TreeError::UnexpectedNodeType),
     };
 
     let mut id_list_index_opt = None;
@@ -224,24 +243,24 @@ fn lookup_insertion_point<Id: Hash + Clone + Eq + Debug>(
 /// less than `SPLIT_LEN`, then this function joins them together. In all other cases, it is a
 /// no-op.
 fn consider_join<Id: Hash + Clone + Eq + Debug>(
-    tree: &mut Tree<Id>,
-    segment: NodeId,
+    tree: &mut temp::Tree<Id>,
+    segment: temp::NodeId,
     rightward: bool,
 ) {
     let (left, right) = match (&tree.nodes[&segment].data, rightward) {
-        (NodeData::String { .. }, _) => return, // abort if this is off the edge of a string
-        (NodeData::StringSegment { next, .. }, true) => (segment, *next),
-        (NodeData::StringSegment { prev, .. }, false) => (*prev, segment),
+        (temp::NodeData::String { .. }, _) => return, // abort if this is off the edge of a string
+        (temp::NodeData::StringSegment { next, .. }, true) => (segment, *next),
+        (temp::NodeData::StringSegment { prev, .. }, false) => (*prev, segment),
         _ => panic!("consider_join called on non-segment node"),
     };
     let left_len = match &tree.nodes[&left].data {
-        NodeData::StringSegment { ids, .. } => ids.len(),
-        NodeData::String { .. } => return, // abort if this is off the edge of a string
+        temp::NodeData::StringSegment { ids, .. } => ids.len(),
+        temp::NodeData::String { .. } => return, // abort if this is off the edge of a string
         _ => panic!("consider_join called on non-segment node"),
     };
     let right_len = match &tree.nodes[&right].data {
-        NodeData::StringSegment { ids, .. } => ids.len(),
-        NodeData::String { .. } => return,
+        temp::NodeData::StringSegment { ids, .. } => ids.len(),
+        temp::NodeData::String { .. } => return,
         _ => panic!("consider_join called on non-segment node"),
     };
     if left_len >= JOIN_LEN || right_len >= JOIN_LEN || left_len + right_len >= SPLIT_LEN {
@@ -250,14 +269,14 @@ fn consider_join<Id: Hash + Clone + Eq + Debug>(
     // delete `right` and merge into this
     let deleted = delete_segment(tree, right);
     let (deleted_contents, deleted_ids) = match deleted.data {
-        NodeData::StringSegment { contents, ids, .. } => (contents, ids),
+        temp::NodeData::StringSegment { contents, ids, .. } => (contents, ids),
         _ => panic!("consider_join called on non-segment node"),
     };
     for (id, _) in &deleted_ids {
         tree.id_to_node[id] = left;
     }
     match &mut tree.nodes[&left].data {
-        NodeData::StringSegment { contents, ids, .. } => {
+        temp::NodeData::StringSegment { contents, ids, .. } => {
             ids.extend(
                 deleted_ids
                     .into_iter()
@@ -274,12 +293,12 @@ fn consider_join<Id: Hash + Clone + Eq + Debug>(
 /// rightmost of the new segments; if no split occured, these will both still be `segment`.
 // TODO this could probably be sped up to instantly segment a very long node into `n` children.
 fn consider_split<Id: Hash + Clone + Eq + Debug>(
-    tree: &mut Tree<Id>,
-    segment: NodeId,
-) -> (NodeId, NodeId) {
+    tree: &mut temp::Tree<Id>,
+    segment: temp::NodeId,
+) -> (temp::NodeId, temp::NodeId) {
     let (contents, ids) = match &mut tree.nodes[&segment].data {
-        NodeData::StringSegment { contents, ids, .. } => (contents, ids),
-        NodeData::String { .. } => return (segment, segment), // abort if this is off the edge of a string
+        temp::NodeData::StringSegment { contents, ids, .. } => (contents, ids),
+        temp::NodeData::String { .. } => return (segment, segment), // abort if this is off the edge of a string
         _ => panic!("consider_split called on non-segment node"),
     };
     if ids.len() <= SPLIT_LEN {
@@ -304,7 +323,7 @@ fn consider_split<Id: Hash + Clone + Eq + Debug>(
         tree.id_to_node[id] = new_node_id;
     }
     match &mut tree.nodes[&new_node_id].data {
-        NodeData::StringSegment { contents, ids, .. } => {
+        temp::NodeData::StringSegment { contents, ids, .. } => {
             *ids = new_ids;
             *contents = new_string;
         }
