@@ -5,6 +5,28 @@ use std::hash::Hash;
 const JOIN_LEN: usize = 511;
 const SPLIT_LEN: usize = 1024;
 
+pub trait Sequence {
+    /// The unit type of the data stored in the sequence. For a `String`, this would be `char`.
+    type Unit;
+    /// Identifies units in the sequence.
+    type UnitId;
+    /// Identifies segments or sequence roots in the sequence.
+    type NodeId;
+
+    fn segment_create(&self) -> Self::NodeId;
+    fn segment_delete(&self, id: Self::NodeId);
+    fn node_is_segment(&self, id: Self::NodeId) -> bool;
+    /// For segment, (prev, next). For sequence root, (end, start)
+    fn node_adjacent(&mut self, id: Self::NodeId) -> (&mut Self::NodeId, &mut Self::NodeId);
+
+    fn segment_unit_len(&self, id: Self::NodeId);
+    fn segment_unit_insert(&self, id: Self::NodeId, index: usize, item: Self::Unit);
+    fn segment_unit_remove(&self, id: Self::NodeId);
+
+    fn unit_id_to_node_id(&self, unit_id: Self::UnitId) -> Option<Self::NodeId>;
+    fn set_unit_id_to_node_id(&self, unit_id: Self::UnitId, node_id: Option<Self::NodeId>);
+}
+
 /// Creates `character` in the tree with id `character_id`, and immediately inserts it after
 /// the character `append_id`. If `append_id` is the ID of a string instead of a character,
 /// `character` will be inserted at the beginning of the string. `append_id` may be a deleted
