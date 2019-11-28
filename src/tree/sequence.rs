@@ -64,44 +64,34 @@ pub(super) fn delete_character<Id: Hash + Clone + Eq + Debug>(
 // Inserts a new, empty segment after `append_to`, and returns the usize of the new node.
 fn insert_segment<Id: Hash + Clone + Eq + Debug>(tree: &mut Tree<Id>, append_to: NodeId) -> NodeId {
     let new_id = tree.next_id();
-    let (parent, prev, next) = match &mut tree.nodes[&append_to] {
-        Node {
-            parent,
-            data: NodeData::StringSegment { next, .. },
-        } => {
-            let old_next = *next;
-            *next = new_id;
-            (*parent, append_to, old_next)
-        }
-        Node {
-            parent: _,
-            data: NodeData::String { start, .. },
-        } => {
-            let old_start = *start;
-            *start = new_id;
-            (Some(append_to), append_to, old_start)
-        }
-        _ => panic!("insert_segment called on non-segment node"),
-    };
+    let parent = tree.nodes[&append_to].parent;
     let node = Node {
-        parent,
-        data: NodeData::StringSegment {
-            prev,
-            next,
-            contents: String::new(),
-            ids: Vec::new(),
-        },
+        parent: parent,
+        data: tree.nodes[&append_to].segment_create(),
     };
     tree.nodes.insert(new_id, node);
-    match &mut tree.nodes[&next].data {
-        NodeData::StringSegment { prev, .. } => {
-            *prev = new_id;
-        }
-        NodeData::String { end, .. } => {
-            *end = new_id;
-        }
-        _ => panic!("insert_segment called on non-segment node"),
+
+    // adjust append_to, which is the segment before new_id
+    let old_append_to_next = {
+        let (_, next) = tree.nodes[&append_to].segment_adjacencies();
+        let old = *next;
+        *next = new_id;
+        old
+    };
+
+    // adjust the new node
+    {
+        let (prev, next) = tree.nodes[&new_id].segment_adjacencies();
+        *prev = append_to;
+        *next = old_append_to_next;
     }
+
+    // adjust the node after `append_to`
+    {
+        let (prev, _) = tree.nodes[&old_append_to_next].segment_adjacencies();
+        *prev = new_id;
+    }
+
     new_id
 }
 

@@ -171,6 +171,35 @@ impl<Id: Hash + Clone + Eq + Debug> Node<Id> {
             NodeData::StringSegment { .. } => None,
         }
     }
+
+    /// Creates a new, empty NodeData for a segment with the same kind. `prev` and `next` are
+    /// expected to be overwritten by the calling function.
+    fn segment_create(&self) -> NodeData<Id> {
+        match &self.data {
+            NodeData::StringSegment { prev, next, .. } => NodeData::StringSegment {
+                    prev: *prev,
+                    next: *next,
+                    contents: String::new(),
+                    ids: Vec::new(),
+            },
+            NodeData::String { end, start, .. } => NodeData::StringSegment {
+                    prev: *end,
+                    next: *start,
+                    contents: String::new(),
+                    ids: Vec::new(),
+            },
+            _ => panic!("segment_create called on non-segment node"),
+        }
+    }
+
+    /// Returns (prev, next) for segments, and (end, start) for sequence containers
+    fn segment_adjacencies(&mut self) -> (&mut NodeId, &mut NodeId) {
+        match &mut self.data {
+            NodeData::String { end, start, .. } => (end, start),
+            NodeData::StringSegment { prev, next, .. } => (prev, next),
+            _ => panic!("segment_adjacencies called on non-sequence typed node"),
+        }
+    }
 }
 
 impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
