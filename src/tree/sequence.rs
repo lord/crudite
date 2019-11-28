@@ -99,26 +99,21 @@ fn insert_segment<Id: Hash + Clone + Eq + Debug>(tree: &mut Tree<Id>, append_to:
 /// responsible for updating `id_to_node`, but this takes care of updating `next`, `prev`, or
 /// if necessary, `start` and `end`. If this is the only segment in the list, it will panic.
 fn delete_segment<Id: Hash + Clone + Eq + Debug>(tree: &mut Tree<Id>, segment: NodeId) -> Node<Id> {
-    let segment_data = tree.nodes.remove(&segment).expect("segment did not exist");
-    let (old_prev, old_next) = match &segment_data.data {
-        NodeData::StringSegment { prev, next, .. } => (*prev, *next),
-        _ => panic!("delete_segment called on non-segment node"),
-    };
-    if old_prev == old_next {
+    let mut old_node = tree.nodes.remove(&segment).expect("segment did not exist");
+    let (old_prev, old_next) = old_node.segment_adjacencies();
+    if *old_prev == *old_next {
         // TODO should this actually panic?
         panic!("attempted to delete only segment in list");
     }
-    match &mut tree.nodes[&old_prev].data {
-        NodeData::StringSegment { next, .. } => *next = old_next,
-        NodeData::String { start, .. } => *start = old_next,
-        _ => panic!("delete_segment called on non-segment node"),
+    {
+        let (_, next) = tree.nodes[&*old_prev].segment_adjacencies();
+        *next = *old_next;
     }
-    match &mut tree.nodes[&old_next].data {
-        NodeData::StringSegment { prev, .. } => *prev = old_prev,
-        NodeData::String { end, .. } => *end = old_prev,
-        _ => panic!("delete_segment called on non-segment node"),
+    {
+        let (prev, _) = tree.nodes[&*old_next].segment_adjacencies();
+        *prev = *old_prev;
     }
-    segment_data
+    old_node
 }
 
 fn lookup_id_index<Id: Hash + Clone + Eq + Debug>(
