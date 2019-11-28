@@ -188,7 +188,7 @@ impl<Id: Hash + Clone + Eq + Debug> Node<Id> {
                     contents: String::new(),
                     ids: Vec::new(),
             },
-            _ => panic!("segment_create called on non-segment node"),
+            _ => panic!("segment_create called on non-sequence node"),
         }
     }
 
@@ -198,6 +198,20 @@ impl<Id: Hash + Clone + Eq + Debug> Node<Id> {
             NodeData::String { end, start, .. } => (end, start),
             NodeData::StringSegment { prev, next, .. } => (prev, next),
             _ => panic!("segment_adjacencies called on non-sequence typed node"),
+        }
+    }
+
+    fn segment_ids(&self) -> Result<&Vec<(Id, Option<usize>)>, TreeError> {
+        match &self.data {
+            NodeData::StringSegment { ids, .. } => Ok(ids),
+            _ => Err(TreeError::UnexpectedNodeType),
+        }
+    }
+
+    fn segment_ids_mut(&mut self) -> Result<&mut Vec<(Id, Option<usize>)>, TreeError> {
+        match &mut self.data {
+            NodeData::StringSegment { ids, .. } => Ok(ids),
+            _ => Err(TreeError::UnexpectedNodeType),
         }
     }
 }

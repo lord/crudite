@@ -128,10 +128,8 @@ fn lookup_id_index<Id: Hash + Clone + Eq + Debug>(
         .nodes
         .get(&node_id)
         .expect("node_id listed in id_to_node did not exist.");
-    let ids = match &node.data {
-        NodeData::StringSegment { ids, .. } => ids,
-        _ => return Err(TreeError::UnexpectedNodeType),
-    };
+
+    let ids = node.segment_ids()?;
 
     for (i, (id, _)) in ids.iter().enumerate() {
         if id == lookup_id {
