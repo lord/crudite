@@ -30,8 +30,6 @@ pub(super) fn insert_character<Id: Hash + Clone + Eq + Debug>(
             ids.insert(id_list_index, (character_id.clone(), Some(string_index)));
             tree.id_to_node.insert(character_id, node_id);
             let (left, right) = consider_split(tree, node_id);
-            consider_join(tree, left, false);
-            consider_join(tree, right, false);
         }
         _ => panic!("unknown object type!!"),
     }
@@ -73,7 +71,7 @@ fn insert_segment<Id: Hash + Clone + Eq + Debug>(tree: &mut Tree<Id>, append_to:
 
     // adjust append_to, which is the segment before new_id
     let old_append_to_next = {
-        let (_, next) = tree.nodes[&append_to].segment_adjacencies();
+        let (_, next) = tree.nodes[&append_to].segment_adjacencies_mut();
         let old = *next;
         *next = new_id;
         old
@@ -81,14 +79,14 @@ fn insert_segment<Id: Hash + Clone + Eq + Debug>(tree: &mut Tree<Id>, append_to:
 
     // adjust the new node
     {
-        let (prev, next) = tree.nodes[&new_id].segment_adjacencies();
+        let (prev, next) = tree.nodes[&new_id].segment_adjacencies_mut();
         *prev = append_to;
         *next = old_append_to_next;
     }
 
     // adjust the node after `append_to`
     {
-        let (prev, _) = tree.nodes[&old_append_to_next].segment_adjacencies();
+        let (prev, _) = tree.nodes[&old_append_to_next].segment_adjacencies_mut();
         *prev = new_id;
     }
 
@@ -100,17 +98,17 @@ fn insert_segment<Id: Hash + Clone + Eq + Debug>(tree: &mut Tree<Id>, append_to:
 /// if necessary, `start` and `end`. If this is the only segment in the list, it will panic.
 fn delete_segment<Id: Hash + Clone + Eq + Debug>(tree: &mut Tree<Id>, segment: NodeId) -> Node<Id> {
     let mut old_node = tree.nodes.remove(&segment).expect("segment did not exist");
-    let (old_prev, old_next) = old_node.segment_adjacencies();
+    let (old_prev, old_next) = old_node.segment_adjacencies_mut();
     if *old_prev == *old_next {
         // TODO should this actually panic?
         panic!("attempted to delete only segment in list");
     }
     {
-        let (_, next) = tree.nodes[&*old_prev].segment_adjacencies();
+        let (_, next) = tree.nodes[&*old_prev].segment_adjacencies_mut();
         *next = *old_next;
     }
     {
-        let (prev, _) = tree.nodes[&*old_next].segment_adjacencies();
+        let (prev, _) = tree.nodes[&*old_next].segment_adjacencies_mut();
         *prev = *old_prev;
     }
     old_node
@@ -155,12 +153,11 @@ fn lookup_insertion_point<Id: Hash + Clone + Eq + Debug>(
         .nodes
         .get(&node_id)
         .expect("node_id listed in id_to_node did not exist.");
-    let (ids, contents) = match &node.data {
-        NodeData::StringSegment { ids, contents, .. } => (ids, contents),
-        // if Id is a string, this char corresponds with the first index in the first segment
-        NodeData::String { start, .. } => return Ok((*start, 0, 0)),
-        _ => return Err(TreeError::UnexpectedNodeType),
-    };
+    if node.segment_is_container() {
+        let (_, start) = node.segment_adjacencies();
+        return Ok((*start, 0, 0));
+    }
+    let ids = node.segment_ids()?;
 
     let mut id_list_index_opt = None;
     for (i, (id, string_index_opt)) in ids.iter().enumerate() {
@@ -176,58 +173,9 @@ fn lookup_insertion_point<Id: Hash + Clone + Eq + Debug>(
         }
     }
     if let Some(id_list_index) = id_list_index_opt {
-        return Ok((*node_id, contents.len(), id_list_index));
+        return Ok((*node_id, node.segment_contents_len()?, id_list_index));
     }
     panic!("id not found in segment id list");
-}
-
-/// If either `segment` or the next node are less than `JOIN_LEN`, and together they are
-/// less than `SPLIT_LEN`, then this function joins them together. In all other cases, it is a
-/// no-op.
-fn consider_join<Id: Hash + Clone + Eq + Debug>(
-    tree: &mut Tree<Id>,
-    segment: NodeId,
-    rightward: bool,
-) {
-    let (left, right) = match (&tree.nodes[&segment].data, rightward) {
-        (NodeData::String { .. }, _) => return, // abort if this is off the edge of a string
-        (NodeData::StringSegment { next, .. }, true) => (segment, *next),
-        (NodeData::StringSegment { prev, .. }, false) => (*prev, segment),
-        _ => panic!("consider_join called on non-segment node"),
-    };
-    let left_len = match &tree.nodes[&left].data {
-        NodeData::StringSegment { ids, .. } => ids.len(),
-        NodeData::String { .. } => return, // abort if this is off the edge of a string
-        _ => panic!("consider_join called on non-segment node"),
-    };
-    let right_len = match &tree.nodes[&right].data {
-        NodeData::StringSegment { ids, .. } => ids.len(),
-        NodeData::String { .. } => return,
-        _ => panic!("consider_join called on non-segment node"),
-    };
-    if left_len >= JOIN_LEN || right_len >= JOIN_LEN || left_len + right_len >= SPLIT_LEN {
-        return;
-    }
-    // delete `right` and merge into this
-    let deleted = delete_segment(tree, right);
-    let (deleted_contents, deleted_ids) = match deleted.data {
-        NodeData::StringSegment { contents, ids, .. } => (contents, ids),
-        _ => panic!("consider_join called on non-segment node"),
-    };
-    for (id, _) in &deleted_ids {
-        tree.id_to_node[id] = left;
-    }
-    match &mut tree.nodes[&left].data {
-        NodeData::StringSegment { contents, ids, .. } => {
-            ids.extend(
-                deleted_ids
-                    .into_iter()
-                    .map(|(id, byte_opt)| (id, byte_opt.map(|n| n + contents.len()))),
-            );
-            contents.push_str(&deleted_contents);
-        }
-        _ => panic!("consider_join called on non-segment node"),
-    }
 }
 
 /// If `segment` is greater than `SPLIT_LEN`, we'll split it into two pieces. This recurses on

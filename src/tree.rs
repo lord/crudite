@@ -193,7 +193,16 @@ impl<Id: Hash + Clone + Eq + Debug> Node<Id> {
     }
 
     /// Returns (prev, next) for segments, and (end, start) for sequence containers
-    fn segment_adjacencies(&mut self) -> (&mut NodeId, &mut NodeId) {
+    fn segment_adjacencies(&self) -> (&NodeId, &NodeId) {
+        match &self.data {
+            NodeData::String { end, start, .. } => (end, start),
+            NodeData::StringSegment { prev, next, .. } => (prev, next),
+            _ => panic!("segment_adjacencies called on non-sequence typed node"),
+        }
+    }
+
+    /// Returns (prev, next) for segments, and (end, start) for sequence containers
+    fn segment_adjacencies_mut(&mut self) -> (&mut NodeId, &mut NodeId) {
         match &mut self.data {
             NodeData::String { end, start, .. } => (end, start),
             NodeData::StringSegment { prev, next, .. } => (prev, next),
@@ -212,6 +221,20 @@ impl<Id: Hash + Clone + Eq + Debug> Node<Id> {
         match &mut self.data {
             NodeData::StringSegment { ids, .. } => Ok(ids),
             _ => Err(TreeError::UnexpectedNodeType),
+        }
+    }
+
+    fn segment_contents_len(&self) -> Result<usize, TreeError> {
+        match &self.data {
+            NodeData::StringSegment { contents, .. } => Ok(contents.len()),
+            _ => Err(TreeError::UnexpectedNodeType),
+        }
+    }
+
+    fn segment_is_container(&self) -> bool {
+        match &self.data {
+            NodeData::String { .. } => true,
+            _ => false,
         }
     }
 }
