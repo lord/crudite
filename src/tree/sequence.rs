@@ -5,27 +5,6 @@ use std::hash::Hash;
 const JOIN_LEN: usize = 511;
 const SPLIT_LEN: usize = 1024;
 
-/// Creates `character` in the tree with id `character_id`, and immediately inserts it after
-/// the character `append_id`. If `append_id` is the ID of a string instead of a character,
-/// `character` will be inserted at the beginning of the string. `append_id` may be a deleted
-/// character, if the tombstone is still in the tree.
-pub(super) fn insert_character<Id: Hash + Clone + Eq + Debug>(
-    tree: &mut Tree<Id>,
-    append_id: Id,
-    character_id: Id,
-    character: char,
-) -> Result<(), TreeError> {
-    sequence_insert(tree, append_id, character_id, |string_index, node| {
-        match &mut node.data {
-            NodeData::StringSegment { contents, .. } => {
-                contents.insert(string_index, character);
-            }
-            _ => panic!("unknown object type!!"),
-        }
-        character.len_utf8()
-    })
-}
-
 /// `insert_fn(index to insert in contents at, node to insert into) -> length of inserted item`
 pub(super) fn sequence_insert<Id: Hash + Clone + Eq + Debug, F: FnOnce(usize, &mut Node<Id>) -> usize>(
     tree: &mut Tree<Id>,

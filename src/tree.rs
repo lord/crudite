@@ -526,7 +526,15 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         character_id: Id,
         character: char,
     ) -> Result<(), TreeError> {
-        sequence::insert_character(self, append_id, character_id, character)
+        sequence::sequence_insert(self, append_id, character_id, |string_index, node| {
+            match &mut node.data {
+                NodeData::StringSegment { contents, .. } => {
+                    contents.insert(string_index, character);
+                }
+                _ => panic!("unknown object type!!"),
+            }
+            character.len_utf8()
+        })
     }
 
     /// Deletes the character with ID `char_id`. A tombstone is left in the string, allowing future
