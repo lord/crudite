@@ -27,13 +27,14 @@ starting with simple opset crdt, no splicing
   - [x] check case where segment can't merge but reaches zero length
   - [x] move segment code into separate module, test segments properly
   - [x] don't actually need to delete segments until we have garbage collection
-- [ ] add array type to json tree
-- [ ] bad IDs are currently ignored by `DocOp`'s `apply`. is this right? how can we prevent malicious reuse of ids? central server validation?
+- [x] add array type to json tree
 - [ ] moving objects needs some work; need to check for cycles, need to remove item from previous parent. maybe can combine this fix with the orphaning system.
-- [ ] ergonomic api for accessing list/string items
+- [ ] ergonomic api for accessing list/string items, update tests
 
 ## future work
 
+- [ ] bad IDs are currently ignored by `DocOp`'s `apply`. is this right? how can we prevent malicious reuse of ids? central server validation?
+- [ ] fuzz for panics and other bugs
 - [ ] garbage collection
 - [ ] selective subtree sync
 - [ ] splice operations?
