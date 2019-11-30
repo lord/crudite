@@ -6,7 +6,7 @@ const JOIN_LEN: usize = 511;
 const SPLIT_LEN: usize = 1024;
 
 /// `insert_fn(index to insert in contents at, node to insert into) -> length of inserted item`
-pub(super) fn sequence_insert<Id: Hash + Clone + Eq + Debug, F: FnOnce(usize, &mut Node<Id>) -> usize>(
+pub(super) fn insert<Id: Hash + Clone + Eq + Debug, F: FnOnce(usize, &mut Node<Id>) -> usize>(
     tree: &mut Tree<Id>,
     append_id: Id,
     character_id: Id,
@@ -30,25 +30,19 @@ pub(super) fn sequence_insert<Id: Hash + Clone + Eq + Debug, F: FnOnce(usize, &m
     Ok(())
 }
 
-/// Deletes the character with ID `char_id`. A tombstone is left in the string, allowing future
-/// `insert_character` calls to reference this `char_id` as their `append_id`.
-pub(super) fn delete_character<Id: Hash + Clone + Eq + Debug>(
+pub(super) fn delete<Id: Hash + Clone + Eq + Debug, F: FnOnce(usize, &mut Node<Id>) -> usize>(
     tree: &mut Tree<Id>,
     char_id: Id,
+    delete_fn: F
 ) -> Result<(), TreeError> {
     let (node_id, id_list_index) = lookup_id_index(tree, &char_id)?;
-    match &mut tree.nodes[&node_id].data {
-        NodeData::StringSegment { ids, contents, .. } => {
-            if let Some(old_byte_index) = ids[id_list_index].1.take() {
-                let deleted_char = contents.remove(old_byte_index);
-                for (_, byte_idx) in ids.iter_mut().skip(id_list_index) {
-                    if let Some(byte_idx) = byte_idx {
-                        *byte_idx -= deleted_char.len_utf8();
-                    }
-                }
+    if let Some(old_byte_index) = tree.nodes[&node_id].segment_ids_mut()?[id_list_index].1.take() {
+        let delete_len = delete_fn(old_byte_index, &mut tree.nodes[&node_id]);
+        for (_, byte_idx) in tree.nodes[&node_id].segment_ids_mut()?.iter_mut().skip(id_list_index) {
+            if let Some(byte_idx) = byte_idx {
+                *byte_idx -= delete_len;
             }
         }
-        _ => panic!("unknown object type!!"),
     }
     Ok(())
 }
