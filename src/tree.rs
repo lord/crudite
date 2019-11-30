@@ -303,6 +303,23 @@ impl<Id: Hash + Clone + Eq + Debug> Node<Id> {
                 let new_string = self_contents.split_off(split_index);
                 *other_contents = new_string;
             }
+            (
+                NodeData::ArraySegment {
+                    contents: self_contents,
+                    ..
+                },
+                NodeData::ArraySegment {
+                    contents: other_contents,
+                    ..
+                },
+            ) => {
+                if other_contents.len() != 0 {
+                    panic!("split_contents_into's `other` did not have empty contents");
+                }
+                let new_vec = self_contents.split_off(split_index);
+                *other_contents = new_vec;
+            }
+
             _ => panic!("two node types in split_contents_into did not match or were not segments"),
         }
     }
@@ -350,6 +367,13 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     pub fn new_with_object_root(root_id: Id) -> Self {
         let mut tree = Self::new(root_id.clone());
         tree.construct_object(root_id).unwrap();
+        tree
+    }
+
+    /// Creates a new `Tree` representing an empty array.
+    pub fn new_with_array_root(root_id: Id) -> Self {
+        let mut tree = Self::new(root_id.clone());
+        tree.construct_array(root_id).unwrap();
         tree
     }
 

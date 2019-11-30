@@ -30,6 +30,7 @@ starting with simple opset crdt, no splicing
 - [ ] add array type to json tree
 - [ ] bad IDs are currently ignored by `DocOp`'s `apply`. is this right? how can we prevent malicious reuse of ids? central server validation?
 - [ ] moving objects needs some work; need to check for cycles, need to remove item from previous parent. maybe can combine this fix with the orphaning system.
+- [ ] ergonomic api for accessing list/string items
 
 ## future work
 

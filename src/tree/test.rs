@@ -32,15 +32,39 @@ fn debug_get_string(tree: &Tree<MyId>, id: MyId) -> Result<String, TreeError> {
     Ok(string)
 }
 
-fn num_to_char(i: usize) -> char {
-    match i % 5 {
-        0 => '0',
-        1 => '1',
-        2 => '2',
-        3 => '3',
-        _ => '4',
+fn debug_get_numbers(tree: &Tree<MyId>, id: MyId) -> Result<Vec<i64>, TreeError> {
+    let string_node_id = tree
+        .id_to_node
+        .get(&id)
+        .expect("Id passed to debug_get_string does not exist.");
+    let node = tree
+        .nodes
+        .get(&string_node_id)
+        .expect("node_id listed in id_to_node did not exist.");
+    let mut next = match &node.data {
+        NodeData::Array { start, .. } => *start,
+        _ => panic!("debug_get_string called on non-string Id"),
+    };
+    let mut values = Vec::new();
+    while next != *string_node_id {
+        let node = tree
+            .nodes
+            .get(&next)
+            .expect("node_id listed in segment adjacency did not exist.");
+        next = match &node.data {
+            NodeData::ArraySegment { next, contents, .. } => {
+                values.extend(contents.iter().map(|v| match v {
+                    Child::Int(i) => i,
+                    v => panic!("child of unexpected type: {:?}", v)
+                }));
+                *next
+            }
+            _ => panic!("debug_get_string called on non-string Id"),
+        };
     }
+    Ok(values)
 }
+
 
 #[test]
 fn object_assignment() {
@@ -154,6 +178,16 @@ fn simple_delete() {
 
 #[test]
 fn insert_and_delete_characters() {
+    fn num_to_char(i: usize) -> char {
+        match i % 5 {
+            0 => '0',
+            1 => '1',
+            2 => '2',
+            3 => '3',
+            _ => '4',
+        }
+    }
+
     let mut tree = Tree::new_with_string_root(MyId(0));
     tree.insert_character(MyId(0), MyId(1), 'a').unwrap();
     assert_eq!(debug_get_string(&tree, MyId(0)), Ok("a".to_string()));
@@ -179,4 +213,41 @@ fn insert_and_delete_characters() {
     }
 
     assert_eq!(debug_get_string(&tree, MyId(0)), Ok(format!("dacb")));
+}
+
+#[test]
+fn insert_and_delete_list_of_nums() {
+    fn num_to_value(i: usize) -> Value<MyId> {
+        Value::Int(i as i64)
+    }
+
+    let mut tree = Tree::new_with_array_root(MyId(0));
+    tree.insert_list_item(MyId(0), MyId(1), Value::Int(1)).unwrap();
+    assert_eq!(debug_get_numbers(&tree, MyId(0)), Ok(vec![1]));
+    tree.insert_list_item(MyId(1), MyId(2), Value::Int(2)).unwrap();
+    assert_eq!(debug_get_numbers(&tree, MyId(0)), Ok(vec![1, 2]));
+    tree.insert_list_item(MyId(1), MyId(3), Value::Int(3)).unwrap();
+    assert_eq!(debug_get_numbers(&tree, MyId(0)), Ok(vec![1, 3, 2]));
+    tree.insert_list_item(MyId(0), MyId(4), Value::Int(4)).unwrap();
+    assert_eq!(debug_get_numbers(&tree, MyId(0)), Ok(vec![4, 1, 3, 2]));
+    for i in 5..10000 {
+        tree.insert_list_item(MyId(i - 1), MyId(i), num_to_value(i))
+            .unwrap();
+    }
+
+    let mut long_insert = (5..10000).map(|i| i).collect::<Vec<_>>();
+    long_insert.insert(0, 4);
+    long_insert.push(1);
+    long_insert.push(3);
+    long_insert.push(2);
+    assert_eq!(
+        debug_get_numbers(&tree, MyId(0)),
+        Ok(long_insert)
+    );
+
+    for i in 5..10000 {
+        tree.delete_list_item(MyId(i)).unwrap();
+    }
+
+    assert_eq!(debug_get_numbers(&tree, MyId(0)), Ok(vec![4, 1, 3, 2]));
 }
