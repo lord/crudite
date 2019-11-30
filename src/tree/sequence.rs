@@ -66,32 +66,35 @@ fn insert_segment<Id: Hash + Clone + Eq + Debug>(
     id_split_index: usize,
 ) -> NodeId {
     let new_id = tree.next_id();
-    let parent = tree.nodes[&to_split].parent;
-    let mut node = Node {
-        parent: parent,
-        data: tree.nodes[&to_split].segment_create(),
-    };
-    let contents_len = tree.nodes[&to_split].segment_contents_len().unwrap();
-    let split_start_string = tree.nodes[&to_split]
-        .segment_ids_mut()
-        .unwrap()
-        .iter()
-        .skip(id_split_index)
-        .find_map(|(_, byte_idx)| byte_idx.clone())
-        .unwrap_or(contents_len);
-    let new_ids: Vec<(Id, Option<usize>)> = tree.nodes[&to_split]
-        .segment_ids_mut()
-        .unwrap()
-        .split_off(id_split_index)
-        .into_iter()
-        .map(|(id, n)| (id, n.map(|n| n - split_start_string)))
-        .collect();
-    tree.nodes[&to_split].segment_split_contents_into(&mut node, split_start_string);
-    for (id, _) in &new_ids {
-        tree.id_to_node[id] = new_id;
+    // split old node; insert into tree
+    {
+        let parent = tree.nodes[&to_split].parent;
+        let mut node = Node {
+            parent: parent,
+            data: tree.nodes[&to_split].segment_create(),
+        };
+        let contents_len = tree.nodes[&to_split].segment_contents_len().unwrap();
+        let split_start_string = tree.nodes[&to_split]
+            .segment_ids_mut()
+            .unwrap()
+            .iter()
+            .skip(id_split_index)
+            .find_map(|(_, byte_idx)| byte_idx.clone())
+            .unwrap_or(contents_len);
+        let new_ids: Vec<(Id, Option<usize>)> = tree.nodes[&to_split]
+            .segment_ids_mut()
+            .unwrap()
+            .split_off(id_split_index)
+            .into_iter()
+            .map(|(id, n)| (id, n.map(|n| n - split_start_string)))
+            .collect();
+        tree.nodes[&to_split].segment_split_contents_into(&mut node, split_start_string);
+        for (id, _) in &new_ids {
+            tree.id_to_node[id] = new_id;
+        }
+        *node.segment_ids_mut().unwrap() = new_ids;
+        tree.nodes.insert(new_id, node);
     }
-    *node.segment_ids_mut().unwrap() = new_ids;
-    tree.nodes.insert(new_id, node);
 
     // adjust to_split, which is the segment before new_id
     let old_to_split_next = {
