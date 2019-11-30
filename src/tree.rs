@@ -27,20 +27,20 @@ enum Child {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Edit<Id> {
-    ListCreate {
+    ArrayCreate {
         /// id of new list
         id: Id,
     },
-    ListInsert {
+    ArrayInsert {
         /// If new item is at start of list, `prev` is the parent list object. otherwise, it's a
-        /// id specified in a previous `ListInsert` operation.
+        /// id specified in a previous `ArrayInsert` operation.
         prev: Id,
-        /// Insertion id. This is used for deleting list items, and in other `ListInsert`'s `prev`.
+        /// Insertion id. This is used for deleting list items, and in other `ArrayInsert`'s `prev`.
         id: Id,
         /// Item to be inserted. If this item had a prevous parent, it is removed from that parent.
         item: Value<Id>,
     },
-    ListDelete {
+    ArrayDelete {
         /// Id of character to delete
         id: Id,
     },
@@ -80,8 +80,8 @@ pub enum NodeType {
     String,
     Character,
     Object,
-    List,
-    ListEntry,
+    Array,
+    ArrayEntry,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -137,22 +137,46 @@ enum NodeData<Id: Hash + Clone + Eq + Debug> {
         items: HashMap<String, Child>,
         id: Id,
     },
-    /// Represents a JSON string value.
-    String {
-        /// The first `TextSegment` in the string value. May be equal to `end` if there is only one
+    /// Represents a JSON array value.
+    Array {
+        /// The first `ArraySegment` in the string value. May be equal to `end` if there is only one
         /// segment.
         start: NodeId,
-        /// The last `TextSegment` in the string value. May be equal to `start` if there is only
+        /// The last `ArraySegment` in the string value. May be equal to `start` if there is only
+        /// one segment.
+        end: NodeId,
+        id: Id,
+    },
+    /// Represents a range of a JSON array value.
+    ArraySegment {
+        /// Node index of the previous `ArraySegment` in this string. If this is the first segment
+        /// in the string, refers to the `Text` parent.
+        prev: NodeId,
+        /// Node index of the next `ArraySegment` in this string. If this is the last segment
+        /// in the string, refers to the `Text` parent.
+        next: NodeId,
+        /// Children in this segment.
+        contents: Vec<NodeId>,
+        /// List of ids. If they are a tombstone, the the Option will be None, if they represent a
+        /// live character, the Option will show the index of the character.
+        ids: Vec<(Id, Option<usize>)>,
+    },
+    /// Represents a JSON string value.
+    String {
+        /// The first `StringSegment` in the string value. May be equal to `end` if there is only one
+        /// segment.
+        start: NodeId,
+        /// The last `StringSegment` in the string value. May be equal to `start` if there is only
         /// one segment.
         end: NodeId,
         id: Id,
     },
     /// Represents a range of a JSON string value.
     StringSegment {
-        /// Node index of the previous `TextSegment` in this string. If this is the first segment
+        /// Node index of the previous `StringSegment` in this string. If this is the first segment
         /// in the string, refers to the `Text` parent.
         prev: NodeId,
-        /// Node index of the next `TextSegment` in this string. If this is the last segment
+        /// Node index of the next `StringSegment` in this string. If this is the last segment
         /// in the string, refers to the `Text` parent.
         next: NodeId,
         /// String contents of this segment.
@@ -166,9 +190,11 @@ enum NodeData<Id: Hash + Clone + Eq + Debug> {
 impl<Id: Hash + Clone + Eq + Debug> Node<Id> {
     fn id(&self) -> Option<Id> {
         match &self.data {
-            NodeData::String { id, .. } => Some(id.clone()),
             NodeData::Object { id, .. } => Some(id.clone()),
+            NodeData::String { id, .. } => Some(id.clone()),
             NodeData::StringSegment { .. } => None,
+            NodeData::Array { id, .. } => Some(id.clone()),
+            NodeData::ArraySegment { .. } => None,
         }
     }
 
@@ -188,6 +214,19 @@ impl<Id: Hash + Clone + Eq + Debug> Node<Id> {
                 contents: String::new(),
                 ids: Vec::new(),
             },
+            NodeData::ArraySegment { prev, next, .. } => NodeData::ArraySegment {
+                prev: *prev,
+                next: *next,
+                contents: Vec::new(),
+                ids: Vec::new(),
+            },
+            NodeData::Array { end, start, .. } => NodeData::ArraySegment {
+                prev: *end,
+                next: *start,
+                contents: Vec::new(),
+                ids: Vec::new(),
+            },
+
             _ => panic!("segment_create called on non-sequence node"),
         }
     }
@@ -197,6 +236,8 @@ impl<Id: Hash + Clone + Eq + Debug> Node<Id> {
         match &self.data {
             NodeData::String { end, start, .. } => (end, start),
             NodeData::StringSegment { prev, next, .. } => (prev, next),
+            NodeData::Array { end, start, .. } => (end, start),
+            NodeData::ArraySegment { prev, next, .. } => (prev, next),
             _ => panic!("segment_adjacencies called on non-sequence typed node"),
         }
     }
@@ -206,6 +247,8 @@ impl<Id: Hash + Clone + Eq + Debug> Node<Id> {
         match &mut self.data {
             NodeData::String { end, start, .. } => (end, start),
             NodeData::StringSegment { prev, next, .. } => (prev, next),
+            NodeData::Array { end, start, .. } => (end, start),
+            NodeData::ArraySegment { prev, next, .. } => (prev, next),
             _ => panic!("segment_adjacencies called on non-sequence typed node"),
         }
     }
@@ -213,6 +256,7 @@ impl<Id: Hash + Clone + Eq + Debug> Node<Id> {
     fn segment_ids(&self) -> Result<&Vec<(Id, Option<usize>)>, TreeError> {
         match &self.data {
             NodeData::StringSegment { ids, .. } => Ok(ids),
+            NodeData::ArraySegment { ids, .. } => Ok(ids),
             _ => Err(TreeError::UnexpectedNodeType),
         }
     }
@@ -220,6 +264,7 @@ impl<Id: Hash + Clone + Eq + Debug> Node<Id> {
     fn segment_ids_mut(&mut self) -> Result<&mut Vec<(Id, Option<usize>)>, TreeError> {
         match &mut self.data {
             NodeData::StringSegment { ids, .. } => Ok(ids),
+            NodeData::ArraySegment { ids, .. } => Ok(ids),
             _ => Err(TreeError::UnexpectedNodeType),
         }
     }
@@ -227,6 +272,7 @@ impl<Id: Hash + Clone + Eq + Debug> Node<Id> {
     fn segment_contents_len(&self) -> Result<usize, TreeError> {
         match &self.data {
             NodeData::StringSegment { contents, .. } => Ok(contents.len()),
+            NodeData::ArraySegment { contents, .. } => Ok(contents.len()),
             _ => Err(TreeError::UnexpectedNodeType),
         }
     }
@@ -234,6 +280,7 @@ impl<Id: Hash + Clone + Eq + Debug> Node<Id> {
     fn segment_is_container(&self) -> bool {
         match &self.data {
             NodeData::String { .. } => true,
+            NodeData::Array { .. } => true,
             _ => false,
         }
     }
@@ -275,13 +322,13 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
 
     pub fn update(&mut self, edit: &Edit<Id>) -> Result<(), TreeError> {
         match edit {
-            Edit::ListCreate { id: _ } => unimplemented!(),
-            Edit::ListInsert {
+            Edit::ArrayCreate { id } => self.construct_array(id.clone()),
+            Edit::ArrayInsert {
                 prev: _,
                 id: _,
                 item: _,
             } => unimplemented!(),
-            Edit::ListDelete { id: _ } => unimplemented!(),
+            Edit::ArrayDelete { id: _ } => unimplemented!(),
             Edit::MapCreate { id } => self.construct_object(id.clone()),
             Edit::MapInsert { parent, key, item } => {
                 self.object_assign(parent.clone(), key.clone(), item.clone())
@@ -366,6 +413,33 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         Ok(())
     }
 
+    /// Constructs a new empty string within the `Tree`. Newly constructed values have no parent or
+    /// place in the tree until placed with an `assign` call.
+    pub fn construct_array(&mut self, id: Id) -> Result<(), TreeError> {
+        let segment_id = self.next_id();
+        let array_id = self.construct_simple(
+            id.clone(),
+            NodeData::Array {
+                id,
+                start: segment_id,
+                end: segment_id,
+            },
+        )?;
+        self.nodes.insert(
+            segment_id,
+            Node {
+                parent: Some(array_id),
+                data: NodeData::ArraySegment {
+                    contents: vec![],
+                    ids: vec![],
+                    prev: array_id,
+                    next: array_id,
+                },
+            },
+        );
+        Ok(())
+    }
+
     fn next_id(&mut self) -> NodeId {
         let res = self.next_node;
         self.next_node.0 += 1;
@@ -407,6 +481,17 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
                     for (id, _) in ids {
                         self.id_to_node.remove(&id).unwrap();
                     }
+                }
+                NodeData::Array { start, id, .. } => {
+                    queue.push(start);
+                    self.id_to_node.remove(&id).unwrap();
+                }
+                NodeData::ArraySegment { next, ids, mut contents, .. } => {
+                    queue.push(next);
+                    for (id, _) in ids {
+                        self.id_to_node.remove(&id).unwrap();
+                    }
+                    queue.append(&mut contents);
                 }
             }
         }
@@ -489,9 +574,11 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             .get(&node_id)
             .expect("node_id listed in id_to_node did not exist.");
         match node.data {
+            NodeData::Object { .. } => Ok(NodeType::Object),
             NodeData::String { .. } => Ok(NodeType::String),
             NodeData::StringSegment { .. } => Ok(NodeType::Character),
-            NodeData::Object { .. } => Ok(NodeType::Object),
+            NodeData::Array { .. } => Ok(NodeType::Array),
+            NodeData::ArraySegment { .. } => Ok(NodeType::ArrayEntry),
         }
     }
 
