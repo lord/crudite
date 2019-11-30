@@ -177,16 +177,16 @@ impl<Id: Hash + Clone + Eq + Debug> Node<Id> {
     fn segment_create(&self) -> NodeData<Id> {
         match &self.data {
             NodeData::StringSegment { prev, next, .. } => NodeData::StringSegment {
-                    prev: *prev,
-                    next: *next,
-                    contents: String::new(),
-                    ids: Vec::new(),
+                prev: *prev,
+                next: *next,
+                contents: String::new(),
+                ids: Vec::new(),
             },
             NodeData::String { end, start, .. } => NodeData::StringSegment {
-                    prev: *end,
-                    next: *start,
-                    contents: String::new(),
-                    ids: Vec::new(),
+                prev: *end,
+                next: *start,
+                contents: String::new(),
+                ids: Vec::new(),
             },
             _ => panic!("segment_create called on non-sequence node"),
         }
@@ -240,17 +240,25 @@ impl<Id: Hash + Clone + Eq + Debug> Node<Id> {
 
     fn segment_split_contents_into(&mut self, other: &mut Node<Id>, split_index: usize) {
         match (&mut self.data, &mut other.data) {
-            (NodeData::StringSegment { contents: self_contents, .. }, NodeData::StringSegment { contents: other_contents, .. }) => {
+            (
+                NodeData::StringSegment {
+                    contents: self_contents,
+                    ..
+                },
+                NodeData::StringSegment {
+                    contents: other_contents,
+                    ..
+                },
+            ) => {
                 if other_contents.len() != 0 {
                     panic!("split_contents_into's `other` did not have empty contents");
                 }
                 let new_string = self_contents.split_off(split_index);
                 *other_contents = new_string;
-            },
+            }
             _ => panic!("two node types in split_contents_into did not match or were not segments"),
         }
     }
-
 }
 
 impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {

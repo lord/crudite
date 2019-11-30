@@ -60,7 +60,11 @@ pub(super) fn delete_character<Id: Hash + Clone + Eq + Debug>(
 }
 
 // Inserts a new, empty segment after `to_split`, and returns the usize of the new node.
-fn insert_segment<Id: Hash + Clone + Eq + Debug>(tree: &mut Tree<Id>, to_split: NodeId, id_split_index: usize) -> NodeId {
+fn insert_segment<Id: Hash + Clone + Eq + Debug>(
+    tree: &mut Tree<Id>,
+    to_split: NodeId,
+    id_split_index: usize,
+) -> NodeId {
     let new_id = tree.next_id();
     let parent = tree.nodes[&to_split].parent;
     let mut node = Node {
@@ -68,12 +72,16 @@ fn insert_segment<Id: Hash + Clone + Eq + Debug>(tree: &mut Tree<Id>, to_split: 
         data: tree.nodes[&to_split].segment_create(),
     };
     let contents_len = tree.nodes[&to_split].segment_contents_len().unwrap();
-    let split_start_string = tree.nodes[&to_split].segment_ids_mut().unwrap()
+    let split_start_string = tree.nodes[&to_split]
+        .segment_ids_mut()
+        .unwrap()
         .iter()
         .skip(id_split_index)
         .find_map(|(_, byte_idx)| byte_idx.clone())
         .unwrap_or(contents_len);
-    let new_ids: Vec<(Id, Option<usize>)> = tree.nodes[&to_split].segment_ids_mut().unwrap()
+    let new_ids: Vec<(Id, Option<usize>)> = tree.nodes[&to_split]
+        .segment_ids_mut()
+        .unwrap()
         .split_off(id_split_index)
         .into_iter()
         .map(|(id, n)| (id, n.map(|n| n - split_start_string)))
