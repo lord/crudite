@@ -15,24 +15,39 @@ pub(super) fn insert_character<Id: Hash + Clone + Eq + Debug>(
     character_id: Id,
     character: char,
 ) -> Result<(), TreeError> {
+    sequence_insert(tree, append_id, character_id, |string_index, node| {
+        match &mut node.data {
+            NodeData::StringSegment { contents, .. } => {
+                contents.insert(string_index, character);
+            }
+            _ => panic!("unknown object type!!"),
+        }
+        character.len_utf8()
+    })
+}
+
+/// `insert_fn(index to insert in contents at, node to insert into) -> length of inserted item`
+pub(super) fn sequence_insert<Id: Hash + Clone + Eq + Debug, F: FnOnce(usize, &mut Node<Id>) -> usize>(
+    tree: &mut Tree<Id>,
+    append_id: Id,
+    character_id: Id,
+    insert_fn: F,
+) -> Result<(), TreeError> {
     if tree.id_to_node.contains_key(&character_id) {
         return Err(TreeError::DuplicateId);
     }
     let (node_id, string_index, id_list_index) = lookup_insertion_point(tree, &append_id)?;
-    match &mut tree.nodes[&node_id].data {
-        NodeData::StringSegment { ids, contents, .. } => {
-            contents.insert(string_index, character);
-            for (_, index_opt) in ids.iter_mut().skip(id_list_index) {
-                if let Some(index) = index_opt {
-                    *index += character.len_utf8();
-                }
-            }
-            ids.insert(id_list_index, (character_id.clone(), Some(string_index)));
-            tree.id_to_node.insert(character_id, node_id);
-            let (left, right) = consider_split(tree, node_id);
+    let insert_len = insert_fn(string_index, &mut tree.nodes[&node_id]);
+    let ids = tree.nodes[&node_id].segment_ids_mut()?;
+            // contents.insert(string_index, character);
+    for (_, index_opt) in ids.iter_mut().skip(id_list_index) {
+        if let Some(index) = index_opt {
+            *index += insert_len;
         }
-        _ => panic!("unknown object type!!"),
     }
+    tree.id_to_node.insert(character_id.clone(), node_id);
+    ids.insert(id_list_index, (character_id, Some(string_index)));
+    consider_split(tree, node_id);
     Ok(())
 }
 
