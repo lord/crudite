@@ -59,19 +59,35 @@ pub(super) fn delete_character<Id: Hash + Clone + Eq + Debug>(
     Ok(())
 }
 
-// Inserts a new, empty segment after `append_to`, and returns the usize of the new node.
-fn insert_segment<Id: Hash + Clone + Eq + Debug>(tree: &mut Tree<Id>, append_to: NodeId) -> NodeId {
+// Inserts a new, empty segment after `to_split`, and returns the usize of the new node.
+fn insert_segment<Id: Hash + Clone + Eq + Debug>(tree: &mut Tree<Id>, to_split: NodeId, id_split_index: usize) -> NodeId {
     let new_id = tree.next_id();
-    let parent = tree.nodes[&append_to].parent;
-    let node = Node {
+    let parent = tree.nodes[&to_split].parent;
+    let mut node = Node {
         parent: parent,
-        data: tree.nodes[&append_to].segment_create(),
+        data: tree.nodes[&to_split].segment_create(),
     };
+    let contents_len = tree.nodes[&to_split].segment_contents_len().unwrap();
+    let split_start_string = tree.nodes[&to_split].segment_ids_mut().unwrap()
+        .iter()
+        .skip(id_split_index)
+        .find_map(|(_, byte_idx)| byte_idx.clone())
+        .unwrap_or(contents_len);
+    let new_ids: Vec<(Id, Option<usize>)> = tree.nodes[&to_split].segment_ids_mut().unwrap()
+        .split_off(id_split_index)
+        .into_iter()
+        .map(|(id, n)| (id, n.map(|n| n - split_start_string)))
+        .collect();
+    tree.nodes[&to_split].segment_split_contents_into(&mut node, split_start_string);
+    for (id, _) in &new_ids {
+        tree.id_to_node[id] = new_id;
+    }
+    *node.segment_ids_mut().unwrap() = new_ids;
     tree.nodes.insert(new_id, node);
 
-    // adjust append_to, which is the segment before new_id
-    let old_append_to_next = {
-        let (_, next) = tree.nodes[&append_to].segment_adjacencies_mut();
+    // adjust to_split, which is the segment before new_id
+    let old_to_split_next = {
+        let (_, next) = tree.nodes[&to_split].segment_adjacencies_mut();
         let old = *next;
         *next = new_id;
         old
@@ -80,13 +96,13 @@ fn insert_segment<Id: Hash + Clone + Eq + Debug>(tree: &mut Tree<Id>, append_to:
     // adjust the new node
     {
         let (prev, next) = tree.nodes[&new_id].segment_adjacencies_mut();
-        *prev = append_to;
-        *next = old_append_to_next;
+        *prev = to_split;
+        *next = old_to_split_next;
     }
 
-    // adjust the node after `append_to`
+    // adjust the node after `to_split`
     {
-        let (prev, _) = tree.nodes[&old_append_to_next].segment_adjacencies_mut();
+        let (prev, _) = tree.nodes[&old_to_split_next].segment_adjacencies_mut();
         *prev = new_id;
     }
 
@@ -186,39 +202,19 @@ fn consider_split<Id: Hash + Clone + Eq + Debug>(
     tree: &mut Tree<Id>,
     segment: NodeId,
 ) -> (NodeId, NodeId) {
-    let (contents, ids) = match &mut tree.nodes[&segment].data {
-        NodeData::StringSegment { contents, ids, .. } => (contents, ids),
-        NodeData::String { .. } => return (segment, segment), // abort if this is off the edge of a string
-        _ => panic!("consider_split called on non-segment node"),
-    };
+    if tree.nodes[&segment].segment_is_container() {
+        // abort if this is off the edge of a string
+        return (segment, segment);
+    }
+    let contents_len = tree.nodes[&segment].segment_contents_len().unwrap();
+    let ids = tree.nodes[&segment].segment_ids_mut().unwrap();
     if ids.len() <= SPLIT_LEN {
         return (segment, segment);
     }
     // the first index of the second segment. need to do this stuff to make sure we split
     // along a codepoint boundary
     let split_start_vec = ids.len() / 2;
-    let split_start_string = ids
-        .iter()
-        .skip(split_start_vec)
-        .find_map(|(_, byte_idx)| byte_idx.clone())
-        .unwrap_or(contents.len());
-    let new_string = contents.split_off(split_start_string);
-    let new_ids: Vec<(Id, Option<usize>)> = ids
-        .split_off(split_start_vec)
-        .into_iter()
-        .map(|(id, n)| (id, n.map(|n| n - split_start_string)))
-        .collect();
-    let new_node_id = insert_segment(tree, segment);
-    for (id, _) in &new_ids {
-        tree.id_to_node[id] = new_node_id;
-    }
-    match &mut tree.nodes[&new_node_id].data {
-        NodeData::StringSegment { contents, ids, .. } => {
-            *ids = new_ids;
-            *contents = new_string;
-        }
-        _ => panic!("insert_segment created wrong type of node"),
-    }
+    let new_node_id = insert_segment(tree, segment, split_start_vec);
     let (left, _) = consider_split(tree, segment);
     let (_, right) = consider_split(tree, new_node_id);
     (left, right)
