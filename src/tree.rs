@@ -156,7 +156,7 @@ enum NodeData<Id: Hash + Clone + Eq + Debug> {
         /// in the string, refers to the `Text` parent.
         next: NodeId,
         /// Children in this segment.
-        contents: Vec<NodeId>,
+        contents: Vec<Child>,
         /// List of ids. If they are a tombstone, the the Option will be None, if they represent a
         /// live character, the Option will show the index of the character.
         ids: Vec<(Id, Option<usize>)>,
@@ -323,12 +323,8 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     pub fn update(&mut self, edit: &Edit<Id>) -> Result<(), TreeError> {
         match edit {
             Edit::ArrayCreate { id } => self.construct_array(id.clone()),
-            Edit::ArrayInsert {
-                prev: _,
-                id: _,
-                item: _,
-            } => unimplemented!(),
-            Edit::ArrayDelete { id: _ } => unimplemented!(),
+            Edit::ArrayInsert {prev, id, item } => self.insert_list_item(prev.clone(), id.clone(), item.clone()),
+            Edit::ArrayDelete { id } => self.delete_list_item(id.clone()),
             Edit::MapCreate { id } => self.construct_object(id.clone()),
             Edit::MapInsert { parent, key, item } => {
                 self.object_assign(parent.clone(), key.clone(), item.clone())
@@ -491,8 +487,46 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
                     for (id, _) in ids {
                         self.id_to_node.remove(&id).unwrap();
                     }
-                    queue.append(&mut contents);
+                    for item in contents {
+                        match item {
+                            Child::Collection(id) => {
+                                queue.push(id);
+                            }
+                            // do nothing for other values; don't have any subchildren to delete
+                            Child::True | Child::False | Child::Null | Child::Int(_) => {}
+                        }
+                    }
                 }
+            }
+        }
+    }
+
+    fn value_to_child(&self, value: &Value<Id>) -> Result<Option<Child>, TreeError> {
+        match value {
+            Value::Collection(id) => {
+                let node_id = *self.id_to_node.get(&id).ok_or(TreeError::UnknownId)?;
+                Ok(Some(Child::Collection(node_id)))
+            }
+            Value::True => Ok(Some(Child::True)),
+            Value::False => Ok(Some(Child::False)),
+            Value::Null => Ok(Some(Child::Null)),
+            Value::Int(i) => Ok(Some(Child::Int(*i))),
+            Value::Unset => Ok(None),
+        }
+    }
+
+    fn child_to_value(&self, child: Option<&Child>) -> Value<Id> {
+        match child {
+            None => Value::Unset,
+            Some(Child::True) => Value::True,
+            Some(Child::False) => Value::False,
+            Some(Child::Null) => Value::Null,
+            Some(Child::Int(i)) => Value::Int(*i),
+            Some(Child::Collection(node_id)) => {
+                let id = self.nodes[&node_id]
+                    .id()
+                    .expect("segment was somehow child of object?");
+                Value::Collection(id)
             }
         }
     }
@@ -508,18 +542,8 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         key: String,
         value: Value<Id>,
     ) -> Result<(), TreeError> {
+        let child_opt = self.value_to_child(&value)?;
         let object_node_id = *self.id_to_node.get(&object).ok_or(TreeError::UnknownId)?;
-        let child_opt = match value {
-            Value::Collection(id) => {
-                let node_id = *self.id_to_node.get(&id).ok_or(TreeError::UnknownId)?;
-                Some(Child::Collection(node_id))
-            }
-            Value::True => Some(Child::True),
-            Value::False => Some(Child::False),
-            Value::Null => Some(Child::Null),
-            Value::Int(i) => Some(Child::Int(i)),
-            Value::Unset => None,
-        };
         if let Some(Child::Collection(child)) = &child_opt {
             self.nodes[&child].parent = Some(object_node_id);
         }
@@ -543,27 +567,11 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         let object_node_id = *self.id_to_node.get(&object).ok_or(TreeError::UnknownId)?;
         let child = match &self.nodes[&object_node_id].data {
             NodeData::Object { items, id: _ } => {
-                if let Some(child) = items.get(key) {
-                    child
-                } else {
-                    return Ok(Value::Unset);
-                }
+                items.get(key)
             }
             _ => return Err(TreeError::UnexpectedNodeType),
         };
-        let val = match child {
-            Child::True => Value::True,
-            Child::False => Value::False,
-            Child::Null => Value::Null,
-            Child::Int(i) => Value::Int(*i),
-            Child::Collection(node_id) => {
-                let id = self.nodes[&node_id]
-                    .id()
-                    .expect("segment was somehow child of object?");
-                Value::Collection(id)
-            }
-        };
-        Ok(val)
+        Ok(self.child_to_value(child))
     }
 
     /// Gets the type of `Id`.
@@ -631,6 +639,44 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             NodeData::StringSegment { contents, .. } => {
                 let deleted_char = contents.remove(string_index);
                 deleted_char.len_utf8()
+            }
+            _ => panic!("unknown object type!!"),
+        })
+    }
+
+    /// Creates `character` in the tree with id `character_id`, and immediately inserts it after
+    /// the character `append_id`. If `append_id` is the ID of a string instead of a character,
+    /// `character` will be inserted at the beginning of the string. `append_id` may be a deleted
+    /// character, if the tombstone is still in the tree.
+    pub fn insert_list_item(
+        &mut self,
+        append_id: Id,
+        character_id: Id,
+        value: Value<Id>,
+    ) -> Result<(), TreeError> {
+        let child = match self.value_to_child(&value)? {
+            Some(v) => v,
+            None => return Ok(()),
+        };
+        sequence::insert(self, append_id, character_id, |array_index, node| {
+            match &mut node.data {
+                NodeData::ArraySegment { contents, .. } => {
+                    contents.insert(array_index, child);
+                }
+                _ => panic!("unknown object type!!"),
+            }
+            1
+        })
+    }
+
+    /// Deletes the character with ID `char_id`. A tombstone is left in the string, allowing future
+    /// `insert_character` calls to reference this `char_id` as their `append_id`.
+    pub fn delete_list_item(&mut self, char_id: Id) -> Result<(), TreeError> {
+        sequence::delete(self, char_id, |array_index, node| match &mut node.data {
+            NodeData::ArraySegment { contents, .. } => {
+                let _child = contents.remove(array_index);
+                // TODO RECURSIVELY REMOVE CHILD
+                1
             }
             _ => panic!("unknown object type!!"),
         })
