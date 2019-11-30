@@ -540,14 +540,12 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     /// Deletes the character with ID `char_id`. A tombstone is left in the string, allowing future
     /// `insert_character` calls to reference this `char_id` as their `append_id`.
     pub fn delete_character(&mut self, char_id: Id) -> Result<(), TreeError> {
-        sequence::delete(self, char_id, |string_index, node| {
-            match &mut node.data {
-                NodeData::StringSegment { contents, .. } => {
-                    let deleted_char = contents.remove(string_index);
-                    deleted_char.len_utf8()
-                }
-                _ => panic!("unknown object type!!"),
+        sequence::delete(self, char_id, |string_index, node| match &mut node.data {
+            NodeData::StringSegment { contents, .. } => {
+                let deleted_char = contents.remove(string_index);
+                deleted_char.len_utf8()
             }
+            _ => panic!("unknown object type!!"),
         })
     }
 }

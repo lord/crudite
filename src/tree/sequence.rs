@@ -18,7 +18,7 @@ pub(super) fn insert<Id: Hash + Clone + Eq + Debug, F: FnOnce(usize, &mut Node<I
     let (node_id, string_index, id_list_index) = lookup_insertion_point(tree, &append_id)?;
     let insert_len = insert_fn(string_index, &mut tree.nodes[&node_id]);
     let ids = tree.nodes[&node_id].segment_ids_mut()?;
-            // contents.insert(string_index, character);
+    // contents.insert(string_index, character);
     for (_, index_opt) in ids.iter_mut().skip(id_list_index) {
         if let Some(index) = index_opt {
             *index += insert_len;
@@ -33,12 +33,19 @@ pub(super) fn insert<Id: Hash + Clone + Eq + Debug, F: FnOnce(usize, &mut Node<I
 pub(super) fn delete<Id: Hash + Clone + Eq + Debug, F: FnOnce(usize, &mut Node<Id>) -> usize>(
     tree: &mut Tree<Id>,
     char_id: Id,
-    delete_fn: F
+    delete_fn: F,
 ) -> Result<(), TreeError> {
     let (node_id, id_list_index) = lookup_id_index(tree, &char_id)?;
-    if let Some(old_byte_index) = tree.nodes[&node_id].segment_ids_mut()?[id_list_index].1.take() {
+    if let Some(old_byte_index) = tree.nodes[&node_id].segment_ids_mut()?[id_list_index]
+        .1
+        .take()
+    {
         let delete_len = delete_fn(old_byte_index, &mut tree.nodes[&node_id]);
-        for (_, byte_idx) in tree.nodes[&node_id].segment_ids_mut()?.iter_mut().skip(id_list_index) {
+        for (_, byte_idx) in tree.nodes[&node_id]
+            .segment_ids_mut()?
+            .iter_mut()
+            .skip(id_list_index)
+        {
             if let Some(byte_idx) = byte_idx {
                 *byte_idx -= delete_len;
             }
