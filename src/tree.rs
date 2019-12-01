@@ -471,6 +471,13 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         res
     }
 
+    pub fn delete_orphans(&mut self) {
+        for orphan in self.orphans.clone() {
+            self.delete(orphan);
+        }
+        self.orphans = HashSet::new();
+    }
+
     /// Deletes a node and all its children. If you want to delete a single segment, try
     /// `delete_segment`. This operation is slow since it recurses on all sub-nodes; you may want
     /// to consider just moving a node into the tree's `orphan` list.

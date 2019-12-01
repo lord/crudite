@@ -85,6 +85,8 @@ fn object_assignment() {
 
     tree.insert_character(MyId(2), MyId(3), 'a').unwrap();
 
+    tree.delete_orphans();
+
     // {"my key": {"my key 2": "a"}}
     // ^          ^            ^^
     // 0          1            23
@@ -109,6 +111,8 @@ fn object_assignment() {
     tree.object_assign(MyId(0), "my key".to_string(), Value::True)
         .unwrap();
 
+    tree.delete_orphans();
+
     // {"my key": true}
     // ^          ^
     // 0          4
@@ -124,6 +128,8 @@ fn object_assignment() {
 
     tree.object_assign(MyId(0), "my key".to_string(), Value::Unset)
         .unwrap();
+
+    tree.delete_orphans();
 
     // {}
     // ^
