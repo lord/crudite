@@ -340,7 +340,9 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     pub fn update(&mut self, edit: &Edit<Id>) -> Result<(), TreeError> {
         match edit {
             Edit::ArrayCreate { id } => self.construct_array(id.clone()),
-            Edit::ArrayInsert {prev, id, item } => self.insert_list_item(prev.clone(), id.clone(), item.clone()),
+            Edit::ArrayInsert { prev, id, item } => {
+                self.insert_list_item(prev.clone(), id.clone(), item.clone())
+            }
             Edit::ArrayDelete { id } => self.delete_list_item(id.clone()),
             Edit::MapCreate { id } => self.construct_object(id.clone()),
             Edit::MapInsert { parent, key, item } => {
@@ -506,7 +508,12 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
                     queue.push(start);
                     self.id_to_node.remove(&id).unwrap();
                 }
-                NodeData::ArraySegment { next, ids, contents, .. } => {
+                NodeData::ArraySegment {
+                    next,
+                    ids,
+                    contents,
+                    ..
+                } => {
                     queue.push(next);
                     for (id, _) in ids {
                         self.id_to_node.remove(&id).unwrap();
@@ -590,9 +597,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     pub fn object_get(&self, object: Id, key: &str) -> Result<Value<Id>, TreeError> {
         let object_node_id = *self.id_to_node.get(&object).ok_or(TreeError::UnknownId)?;
         let child = match &self.nodes[&object_node_id].data {
-            NodeData::Object { items, id: _ } => {
-                items.get(key)
-            }
+            NodeData::Object { items, id: _ } => items.get(key),
             _ => return Err(TreeError::UnexpectedNodeType),
         };
         Ok(self.child_to_value(child))

@@ -55,7 +55,7 @@ fn debug_get_numbers(tree: &Tree<MyId>, id: MyId) -> Result<Vec<i64>, TreeError>
             NodeData::ArraySegment { next, contents, .. } => {
                 values.extend(contents.iter().map(|v| match v {
                     Child::Int(i) => i,
-                    v => panic!("child of unexpected type: {:?}", v)
+                    v => panic!("child of unexpected type: {:?}", v),
                 }));
                 *next
             }
@@ -64,7 +64,6 @@ fn debug_get_numbers(tree: &Tree<MyId>, id: MyId) -> Result<Vec<i64>, TreeError>
     }
     Ok(values)
 }
-
 
 #[test]
 fn object_assignment() {
@@ -222,13 +221,17 @@ fn insert_and_delete_list_of_nums() {
     }
 
     let mut tree = Tree::new_with_array_root(MyId(0));
-    tree.insert_list_item(MyId(0), MyId(1), Value::Int(1)).unwrap();
+    tree.insert_list_item(MyId(0), MyId(1), Value::Int(1))
+        .unwrap();
     assert_eq!(debug_get_numbers(&tree, MyId(0)), Ok(vec![1]));
-    tree.insert_list_item(MyId(1), MyId(2), Value::Int(2)).unwrap();
+    tree.insert_list_item(MyId(1), MyId(2), Value::Int(2))
+        .unwrap();
     assert_eq!(debug_get_numbers(&tree, MyId(0)), Ok(vec![1, 2]));
-    tree.insert_list_item(MyId(1), MyId(3), Value::Int(3)).unwrap();
+    tree.insert_list_item(MyId(1), MyId(3), Value::Int(3))
+        .unwrap();
     assert_eq!(debug_get_numbers(&tree, MyId(0)), Ok(vec![1, 3, 2]));
-    tree.insert_list_item(MyId(0), MyId(4), Value::Int(4)).unwrap();
+    tree.insert_list_item(MyId(0), MyId(4), Value::Int(4))
+        .unwrap();
     assert_eq!(debug_get_numbers(&tree, MyId(0)), Ok(vec![4, 1, 3, 2]));
     for i in 5..10000 {
         tree.insert_list_item(MyId(i - 1), MyId(i), num_to_value(i))
@@ -240,10 +243,7 @@ fn insert_and_delete_list_of_nums() {
     long_insert.push(1);
     long_insert.push(3);
     long_insert.push(2);
-    assert_eq!(
-        debug_get_numbers(&tree, MyId(0)),
-        Ok(long_insert)
-    );
+    assert_eq!(debug_get_numbers(&tree, MyId(0)), Ok(long_insert));
 
     for i in 5..10000 {
         tree.delete_list_item(MyId(i)).unwrap();
