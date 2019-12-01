@@ -2,7 +2,7 @@ mod sequence;
 #[cfg(test)]
 mod test;
 
-use im::HashMap;
+use im::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::hash::Hash;
 
@@ -115,6 +115,8 @@ pub struct Tree<Id: Hash + Clone + Eq + Debug> {
 
     /// Id of the root object of the tree
     root: Id,
+
+    orphans: HashSet<NodeId>,
 
     /// Maps external IDs to their position in the tree. In the case of Segments of a sequence,
     /// futher disambiguation may be necessary to find the exact character this represents within
@@ -330,6 +332,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     /// constructors to create the `Tree` instead.
     pub fn new(root_id: Id) -> Self {
         Tree {
+            orphans: HashSet::new(),
             next_node: NodeId(0),
             id_to_node: HashMap::new(),
             nodes: HashMap::new(),
@@ -343,10 +346,10 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             Edit::ArrayInsert { prev, id, item } => {
                 self.insert_list_item(prev.clone(), id.clone(), item.clone())
             }
-            Edit::ArrayDelete { id } => self.delete_list_item(id.clone()),
+            Edit::ArrayDelete { id } => self.delete_list_item(id.clone()).map(|_| ()),
             Edit::MapCreate { id } => self.construct_object(id.clone()),
             Edit::MapInsert { parent, key, item } => {
-                self.object_assign(parent.clone(), key.clone(), item.clone())
+                self.object_assign(parent.clone(), key.clone(), item.clone()).map(|_| ())
             }
             Edit::TextCreate { id } => self.construct_string(id.clone()),
             Edit::TextInsert {
@@ -469,12 +472,9 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     }
 
     /// Deletes a node and all its children. If you want to delete a single segment, try
-    /// `delete_segment`.
+    /// `delete_segment`. This operation is slow since it recurses on all sub-nodes; you may want
+    /// to consider just moving a node into the tree's `orphan` list.
     fn delete(&mut self, item: NodeId) {
-        match self.nodes[&item].data {
-            NodeData::Object { .. } | NodeData::String { .. } => { /* do nothing */ }
-            _ => panic!("attempted to delete invalid type"),
-        }
         let mut queue = vec![item];
         while let Some(item) = queue.pop() {
             let node = match self.nodes.remove(&item) {
@@ -532,6 +532,11 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         }
     }
 
+    fn move_to_orphan(&mut self, item: NodeId) {
+        self.nodes[&item].parent = None;
+        self.orphans.insert(item);
+    }
+
     fn value_to_child(&self, value: &Value<Id>) -> Result<Option<Child>, TreeError> {
         match value {
             Value::Collection(id) => {
@@ -564,15 +569,14 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
 
     // TODO right now this is last-write-wins, could modify the object NodeData pretty lightly and
     // get multi value registers which would be sick
-    /// Moves `value` to `object[key]`. If `value` is `None`, the key is deleted. The previous
-    /// value must be deleted, which takes `O(log n)` for each item in the subtree of the previous
-    /// value.
+    /// Moves `value` to `object[key]`. If `value` is `None`, the key is deleted. If there was a
+    /// previous collection assigned to this key, it is reparented into the tree's `orphan` list.
     pub fn object_assign(
         &mut self,
         object: Id,
         key: String,
         value: Value<Id>,
-    ) -> Result<(), TreeError> {
+    ) -> Result<Value<Id>, TreeError> {
         let child_opt = self.value_to_child(&value)?;
         let object_node_id = *self.id_to_node.get(&object).ok_or(TreeError::UnknownId)?;
         if let Some(Child::Collection(child)) = &child_opt {
@@ -586,12 +590,12 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
                     items.remove(&key)
                 };
                 if let Some(Child::Collection(old_id)) = old {
-                    self.delete(old_id);
+                    self.move_to_orphan(old_id);
                 }
+                Ok(self.child_to_value(old.as_ref()))
             }
-            _ => return Err(TreeError::UnexpectedNodeType),
+            _ => Err(TreeError::UnexpectedNodeType),
         }
-        Ok(())
     }
 
     pub fn object_get(&self, object: Id, key: &str) -> Result<Value<Id>, TreeError> {
@@ -698,16 +702,20 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         })
     }
 
-    /// Deletes the character with ID `char_id`. A tombstone is left in the string, allowing future
-    /// `insert_character` calls to reference this `char_id` as their `append_id`.
-    pub fn delete_list_item(&mut self, char_id: Id) -> Result<(), TreeError> {
-        sequence::delete(self, char_id, |array_index, node| match &mut node.data {
+    /// Deletes the item in the list with ID `item_id`. A tombstone is left in the string, allowing
+    /// future `insert_character` calls to reference this `char_id` as their `append_id`.
+    pub fn delete_list_item(&mut self, item_id: Id) -> Result<Value<Id>, TreeError> {
+        let mut child_opt = None;
+        sequence::delete(self, item_id, |array_index, node| match &mut node.data {
             NodeData::ArraySegment { contents, .. } => {
-                let _child = contents.remove(array_index);
-                // TODO RECURSIVELY REMOVE CHILD
+                child_opt = Some(contents.remove(array_index));
                 1
             }
             _ => panic!("unknown object type!!"),
-        })
+        })?;
+        if let Some(Child::Collection(id)) = &child_opt {
+            self.move_to_orphan(*id);
+        }
+        Ok(self.child_to_value(child_opt.as_ref()))
     }
 }
