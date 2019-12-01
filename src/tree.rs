@@ -506,7 +506,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
                     queue.push(start);
                     self.id_to_node.remove(&id).unwrap();
                 }
-                NodeData::ArraySegment { next, ids, mut contents, .. } => {
+                NodeData::ArraySegment { next, ids, contents, .. } => {
                     queue.push(next);
                     for (id, _) in ids {
                         self.id_to_node.remove(&id).unwrap();

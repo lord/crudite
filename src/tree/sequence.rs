@@ -1,8 +1,7 @@
-use super::{Child, Node, NodeData, NodeId, Tree, TreeError};
+use super::{Node, NodeId, Tree, TreeError};
 use std::fmt::Debug;
 use std::hash::Hash;
 
-const JOIN_LEN: usize = 511;
 const SPLIT_LEN: usize = 1024;
 
 /// `insert_fn(index to insert in contents at, node to insert into) -> length of inserted item`
@@ -115,27 +114,6 @@ fn insert_segment<Id: Hash + Clone + Eq + Debug>(
     new_id
 }
 
-/// Deletes a segment with node id `usize`, returns deleted NodeData and new Tree. Caller is
-/// responsible for updating `id_to_node`, but this takes care of updating `next`, `prev`, or
-/// if necessary, `start` and `end`. If this is the only segment in the list, it will panic.
-fn delete_segment<Id: Hash + Clone + Eq + Debug>(tree: &mut Tree<Id>, segment: NodeId) -> Node<Id> {
-    let mut old_node = tree.nodes.remove(&segment).expect("segment did not exist");
-    let (old_prev, old_next) = old_node.segment_adjacencies_mut();
-    if *old_prev == *old_next {
-        // TODO should this actually panic?
-        panic!("attempted to delete only segment in list");
-    }
-    {
-        let (_, next) = tree.nodes[&*old_prev].segment_adjacencies_mut();
-        *next = *old_next;
-    }
-    {
-        let (prev, _) = tree.nodes[&*old_next].segment_adjacencies_mut();
-        *prev = *old_prev;
-    }
-    old_node
-}
-
 fn lookup_id_index<Id: Hash + Clone + Eq + Debug>(
     tree: &Tree<Id>,
     lookup_id: &Id,
@@ -212,7 +190,6 @@ fn consider_split<Id: Hash + Clone + Eq + Debug>(
         // abort if this is off the edge of a string
         return (segment, segment);
     }
-    let contents_len = tree.nodes[&segment].segment_contents_len().unwrap();
     let ids = tree.nodes[&segment].segment_ids_mut().unwrap();
     if ids.len() <= SPLIT_LEN {
         return (segment, segment);
