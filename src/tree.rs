@@ -406,7 +406,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
 
     /// Constructs a new empty object within the `Tree`. Newly constructed values have no parent or
     /// place in the tree until placed with an `assign` call.
-    pub fn construct_object(&mut self, id: Id) -> Result<(), TreeError> {
+    fn construct_object(&mut self, id: Id) -> Result<(), TreeError> {
         self.construct_simple(
             id.clone(),
             NodeData::Object {
@@ -419,7 +419,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
 
     /// Constructs a new empty string within the `Tree`. Newly constructed values have no parent or
     /// place in the tree until placed with an `assign` call.
-    pub fn construct_string(&mut self, id: Id) -> Result<(), TreeError> {
+    fn construct_string(&mut self, id: Id) -> Result<(), TreeError> {
         let segment_id = self.next_id();
         let string_id = self.construct_simple(
             id.clone(),
@@ -446,7 +446,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
 
     /// Constructs a new empty string within the `Tree`. Newly constructed values have no parent or
     /// place in the tree until placed with an `assign` call.
-    pub fn construct_array(&mut self, id: Id) -> Result<(), TreeError> {
+    fn construct_array(&mut self, id: Id) -> Result<(), TreeError> {
         let segment_id = self.next_id();
         let array_id = self.construct_simple(
             id.clone(),
@@ -602,7 +602,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     // get multi value registers which would be sick
     /// Moves `value` to `object[key]`. If `value` is `None`, the key is deleted. If there was a
     /// previous collection assigned to this key, it is reparented into the tree's `orphan` list.
-    pub fn object_assign(
+    fn object_assign(
         &mut self,
         object: Id,
         key: String,
@@ -629,7 +629,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         }
     }
 
-    pub fn object_get(&self, object: Id, key: &str) -> Result<Value<Id>, TreeError> {
+    fn object_get(&self, object: Id, key: &str) -> Result<Value<Id>, TreeError> {
         let object_node_id = *self.id_to_node.get(&object).ok_or(TreeError::UnknownId)?;
         let child = match &self.nodes[&object_node_id].data {
             NodeData::Object { items, id: _ } => items.get(key),
@@ -639,7 +639,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     }
 
     /// Gets the type of `Id`.
-    pub fn get_type(&self, id: Id) -> Result<NodeType, TreeError> {
+    fn get_type(&self, id: Id) -> Result<NodeType, TreeError> {
         let node_id = self.id_to_node.get(&id).ok_or(TreeError::UnknownId)?;
         let node = self
             .nodes
@@ -654,7 +654,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         }
     }
 
-    pub fn get_parent(&self, id: Id) -> Result<Option<Id>, TreeError> {
+    fn get_parent(&self, id: Id) -> Result<Option<Id>, TreeError> {
         let node_id = self.id_to_node.get(&id).ok_or(TreeError::UnknownId)?;
         let node = self
             .nodes
@@ -679,7 +679,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     /// the character `append_id`. If `append_id` is the ID of a string instead of a character,
     /// `character` will be inserted at the beginning of the string. `append_id` may be a deleted
     /// character, if the tombstone is still in the tree.
-    pub fn insert_character(
+    fn insert_character(
         &mut self,
         append_id: Id,
         character_id: Id,
@@ -698,7 +698,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
 
     /// Deletes the character with ID `char_id`. A tombstone is left in the string, allowing future
     /// `insert_character` calls to reference this `char_id` as their `append_id`.
-    pub fn delete_character(&mut self, char_id: Id) -> Result<(), TreeError> {
+    fn delete_character(&mut self, char_id: Id) -> Result<(), TreeError> {
         sequence::delete(self, char_id, |string_index, node| match &mut node.data {
             NodeData::StringSegment { contents, .. } => {
                 let deleted_char = contents.remove(string_index);
@@ -712,7 +712,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     /// the character `append_id`. If `append_id` is the ID of a string instead of a character,
     /// `character` will be inserted at the beginning of the string. `append_id` may be a deleted
     /// character, if the tombstone is still in the tree.
-    pub fn insert_list_item(
+    fn insert_list_item(
         &mut self,
         append_id: Id,
         character_id: Id,
@@ -757,7 +757,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
 
     /// Deletes the item in the list with ID `item_id`. A tombstone is left in the string, allowing
     /// future `insert_character` calls to reference this `char_id` as their `append_id`.
-    pub fn delete_list_item(&mut self, item_id: Id) -> Result<Value<Id>, TreeError> {
+    fn delete_list_item(&mut self, item_id: Id) -> Result<Value<Id>, TreeError> {
         let mut child_opt = None;
         sequence::delete(self, item_id, |array_index, node| match &mut node.data {
             NodeData::ArraySegment { contents, .. } => {
