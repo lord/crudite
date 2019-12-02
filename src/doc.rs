@@ -43,7 +43,7 @@ pub struct Doc {
 impl Doc {
     pub fn new() -> Doc {
         Doc {
-            opset: opset::Opset::new(tree::Tree::new(ROOT_ID), CACHE_GAP),
+            opset: opset::Opset::new(tree::Tree::new_with_object_root(ROOT_ID), CACHE_GAP),
         }
     }
 

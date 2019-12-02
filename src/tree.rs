@@ -90,6 +90,7 @@ pub enum TreeError {
     UnexpectedNodeType,
     DuplicateId,
     NodeAlreadyHadParent,
+    EditWouldCauseCycle,
 }
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -331,7 +332,7 @@ impl<Id: Hash + Clone + Eq + Debug> Node<Id> {
 impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     /// This is private since it constructs a tree with no root value; use one of the public
     /// constructors to create the `Tree` instead.
-    pub fn new(root_id: Id) -> Self {
+    fn new(root_id: Id) -> Self {
         Tree {
             orphans: HashSet::new(),
             next_node: NodeId(0),
@@ -549,10 +550,19 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         self.orphans.insert(item);
     }
 
+    // has to recurse up parents to ensure we haven't made any cycles, unfortunately
     fn reparent_item(&mut self, item: NodeId, parent: NodeId) -> Result<(), TreeError> {
         if self.nodes[&item].parent.is_some() {
             return Err(TreeError::NodeAlreadyHadParent);
         }
+        let mut next = Some(parent);
+        while let Some(this) = next.take() {
+            if this == item {
+                return Err(TreeError::EditWouldCauseCycle);
+            }
+            next = self.nodes[&this].parent;
+        }
+
         self.orphans.remove(&item).unwrap();
         self.nodes[&item].parent = Some(parent);
         Ok(())
