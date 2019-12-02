@@ -265,17 +265,23 @@ fn cant_move_things_with_object_parents() {
     tree.object_assign(MyId(0), "my key".to_string(), Value::Collection(MyId(1)))
         .unwrap();
     // attempt second assignment
-    assert_eq!(Err(TreeError::NodeAlreadyHadParent), tree.object_assign(MyId(0), "my key 2".to_string(), Value::Collection(MyId(1))));
+    assert_eq!(
+        Err(TreeError::NodeAlreadyHadParent),
+        tree.object_assign(MyId(0), "my key 2".to_string(), Value::Collection(MyId(1)))
+    );
 }
-
 
 #[test]
 fn cant_move_things_with_array_parents() {
     let mut tree = Tree::new_with_array_root(MyId(0));
     tree.construct_object(MyId(1)).unwrap();
-    tree.insert_list_item(MyId(0), MyId(2), Value::Collection(MyId(1))).unwrap();
+    tree.insert_list_item(MyId(0), MyId(2), Value::Collection(MyId(1)))
+        .unwrap();
     // attempt second insert
-    assert_eq!(Err(TreeError::NodeAlreadyHadParent), tree.insert_list_item(MyId(0), MyId(3), Value::Collection(MyId(1))));
+    assert_eq!(
+        Err(TreeError::NodeAlreadyHadParent),
+        tree.insert_list_item(MyId(0), MyId(3), Value::Collection(MyId(1)))
+    );
 }
 
 #[test]
@@ -303,8 +309,12 @@ fn object_assignment_prevents_cycles() {
     // let's attempt an assignment that causes a loop
 
     // first, unassign 1 from 0["my_key"]
-    tree.object_assign(MyId(0), "my key".to_string(), Value::Int(123)).unwrap();
+    tree.object_assign(MyId(0), "my key".to_string(), Value::Int(123))
+        .unwrap();
 
     // next, make the now-orphaned 1 a child of 2
-    assert_eq!(Err(TreeError::EditWouldCauseCycle), tree.object_assign(MyId(2), "my key 3".to_string(), Value::Collection(MyId(1))));
+    assert_eq!(
+        Err(TreeError::EditWouldCauseCycle),
+        tree.object_assign(MyId(2), "my key 3".to_string(), Value::Collection(MyId(1)))
+    );
 }

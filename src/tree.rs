@@ -350,9 +350,9 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             }
             Edit::ArrayDelete { id } => self.delete_list_item(id.clone()).map(|_| ()),
             Edit::MapCreate { id } => self.construct_object(id.clone()),
-            Edit::MapInsert { parent, key, item } => {
-                self.object_assign(parent.clone(), key.clone(), item.clone()).map(|_| ())
-            }
+            Edit::MapInsert { parent, key, item } => self
+                .object_assign(parent.clone(), key.clone(), item.clone())
+                .map(|_| ()),
             Edit::TextCreate { id } => self.construct_string(id.clone()),
             Edit::TextInsert {
                 prev,
@@ -724,15 +724,24 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             None => return Ok(()),
         };
         if let Child::Collection(child) = &child {
-            let append_node = *self.id_to_node.get(&append_id).ok_or(TreeError::UnknownId)?;
+            let append_node = *self
+                .id_to_node
+                .get(&append_id)
+                .ok_or(TreeError::UnknownId)?;
             match self.nodes[&append_node] {
-                Node { data: NodeData::ArraySegment { .. }, parent} => {
+                Node {
+                    data: NodeData::ArraySegment { .. },
+                    parent,
+                } => {
                     self.reparent_item(*child, parent.unwrap())?;
                 }
-                Node { data: NodeData::Array { .. }, ..} => {
+                Node {
+                    data: NodeData::Array { .. },
+                    ..
+                } => {
                     self.reparent_item(*child, append_node)?;
                 }
-                _ => return Err(TreeError::UnexpectedNodeType)
+                _ => return Err(TreeError::UnexpectedNodeType),
             }
         }
         sequence::insert(self, append_id, character_id, |array_index, node| {
