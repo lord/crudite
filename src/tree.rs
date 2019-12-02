@@ -89,6 +89,7 @@ pub enum TreeError {
     UnknownId,
     UnexpectedNodeType,
     DuplicateId,
+    NodeAlreadyHadParent,
 }
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -365,6 +366,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     pub fn new_with_string_root(root_id: Id) -> Self {
         let mut tree = Self::new(root_id.clone());
         tree.construct_string(root_id).unwrap();
+        tree.orphans = HashSet::new();
         tree
     }
 
@@ -372,6 +374,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     pub fn new_with_object_root(root_id: Id) -> Self {
         let mut tree = Self::new(root_id.clone());
         tree.construct_object(root_id).unwrap();
+        tree.orphans = HashSet::new();
         tree
     }
 
@@ -379,6 +382,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     pub fn new_with_array_root(root_id: Id) -> Self {
         let mut tree = Self::new(root_id.clone());
         tree.construct_array(root_id).unwrap();
+        tree.orphans = HashSet::new();
         tree
     }
 
@@ -388,6 +392,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         }
         let node_id = self.next_id();
         self.id_to_node.insert(id, node_id);
+        self.orphans.insert(node_id);
         self.nodes.insert(
             node_id,
             Node {
@@ -544,6 +549,15 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         self.orphans.insert(item);
     }
 
+    fn reparent_item(&mut self, item: NodeId, parent: NodeId) -> Result<(), TreeError> {
+        if self.nodes[&item].parent.is_some() {
+            return Err(TreeError::NodeAlreadyHadParent);
+        }
+        self.orphans.remove(&item).unwrap();
+        self.nodes[&item].parent = Some(parent);
+        Ok(())
+    }
+
     fn value_to_child(&self, value: &Value<Id>) -> Result<Option<Child>, TreeError> {
         match value {
             Value::Collection(id) => {
@@ -587,7 +601,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         let child_opt = self.value_to_child(&value)?;
         let object_node_id = *self.id_to_node.get(&object).ok_or(TreeError::UnknownId)?;
         if let Some(Child::Collection(child)) = &child_opt {
-            self.nodes[&child].parent = Some(object_node_id);
+            self.reparent_item(*child, object_node_id)?;
         }
         match &mut self.nodes[&object_node_id].data {
             NodeData::Object { items, id: _ } => {
@@ -694,10 +708,23 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         character_id: Id,
         value: Value<Id>,
     ) -> Result<(), TreeError> {
+        // TODO need to better check for invalid input
         let child = match self.value_to_child(&value)? {
             Some(v) => v,
             None => return Ok(()),
         };
+        if let Child::Collection(child) = &child {
+            let append_node = *self.id_to_node.get(&append_id).ok_or(TreeError::UnknownId)?;
+            match self.nodes[&append_node] {
+                Node { data: NodeData::ArraySegment { .. }, parent} => {
+                    self.reparent_item(*child, parent.unwrap())?;
+                }
+                Node { data: NodeData::Array { .. }, ..} => {
+                    self.reparent_item(*child, append_node)?;
+                }
+                _ => return Err(TreeError::UnexpectedNodeType)
+            }
+        }
         sequence::insert(self, append_id, character_id, |array_index, node| {
             match &mut node.data {
                 NodeData::ArraySegment { contents, .. } => {
