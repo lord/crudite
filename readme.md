@@ -29,8 +29,8 @@ starting with simple opset crdt, no splicing
   - [x] don't actually need to delete segments until we have garbage collection
 - [x] add array type to json tree
 - [x] moving objects needs some work; need to check for cycles, need to remove item from previous parent. maybe can combine this fix with the orphaning system.
-- [ ] cleanup
 - [ ] ergonomic api for accessing list/string items, update tests
+- [ ] rewrite tests to only use public api
 
 ## future work
 
