@@ -17,6 +17,13 @@ pub enum Value<Id> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Parent<Id> {
+    Array(ArrayRef<Id>),
+    Object(ObjectRef<Id>),
+    None,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StringRef<Id>(pub Id);
 impl<Id: Hash + Clone + Eq + Debug> StringRef<Id> {
     pub fn to_string(&self, tree: &tree::Tree<Id>) -> Result<String, tree::TreeError> {
@@ -47,6 +54,10 @@ impl<Id: Hash + Clone + Eq + Debug> StringRef<Id> {
             };
         }
         Ok(string)
+    }
+
+    pub fn parent(&self, tree: &tree::Tree<Id>) -> Result<Parent<Id>, tree::TreeError> {
+        tree.get_parent(&self.0)
     }
 }
 
@@ -91,6 +102,10 @@ impl<Id: Hash + Clone + Eq + Debug> ArrayRef<Id> {
             .collect();
         Ok(values)
     }
+
+    pub fn parent(&self, tree: &tree::Tree<Id>) -> Result<Parent<Id>, tree::TreeError> {
+        tree.get_parent(&self.0)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -100,4 +115,8 @@ impl<Id: Hash + Clone + Eq + Debug> ArrayIndex<Id> {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ObjectRef<Id>(pub Id);
-impl<Id: Hash + Clone + Eq + Debug> ObjectRef<Id> {}
+impl<Id: Hash + Clone + Eq + Debug> ObjectRef<Id> {
+    pub fn parent(&self, tree: &tree::Tree<Id>) -> Result<Parent<Id>, tree::TreeError> {
+        tree.get_parent(&self.0)
+    }
+}
