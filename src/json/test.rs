@@ -3,66 +3,17 @@ use super::tree::*;
 struct MyId(usize);
 
 fn debug_get_string(tree: &Tree<MyId>, id: MyId) -> Result<String, TreeError> {
-    let string_node_id = tree
-        .id_to_node
-        .get(&id)
-        .expect("Id passed to debug_get_string does not exist.");
-    let node = tree
-        .nodes
-        .get(&string_node_id)
-        .expect("node_id listed in id_to_node did not exist.");
-    let mut next = match &node.data {
-        NodeData::String { start, .. } => *start,
-        _ => panic!("debug_get_string called on non-string Id"),
-    };
-    let mut string = String::new();
-    while next != *string_node_id {
-        let node = tree
-            .nodes
-            .get(&next)
-            .expect("node_id listed in segment adjacency did not exist.");
-        next = match &node.data {
-            NodeData::StringSegment { next, contents, .. } => {
-                string.push_str(contents);
-                *next
-            }
-            _ => panic!("debug_get_string called on non-string Id"),
-        };
-    }
-    Ok(string)
+    let r = StringRef(id);
+    r.to_string(&tree)
 }
 
 fn debug_get_numbers(tree: &Tree<MyId>, id: MyId) -> Result<Vec<i64>, TreeError> {
-    let string_node_id = tree
-        .id_to_node
-        .get(&id)
-        .expect("Id passed to debug_get_string does not exist.");
-    let node = tree
-        .nodes
-        .get(&string_node_id)
-        .expect("node_id listed in id_to_node did not exist.");
-    let mut next = match &node.data {
-        NodeData::Array { start, .. } => *start,
-        _ => panic!("debug_get_string called on non-string Id"),
-    };
-    let mut values = Vec::new();
-    while next != *string_node_id {
-        let node = tree
-            .nodes
-            .get(&next)
-            .expect("node_id listed in segment adjacency did not exist.");
-        next = match &node.data {
-            NodeData::ArraySegment { next, contents, .. } => {
-                values.extend(contents.iter().map(|v| match v {
-                    Child::Int(i) => i,
-                    v => panic!("child of unexpected type: {:?}", v),
-                }));
-                *next
-            }
-            _ => panic!("debug_get_string called on non-string Id"),
-        };
-    }
-    Ok(values)
+    let r = ArrayRef(id);
+    let res = r.to_vec(&tree);
+    res.map(|vals| vals.iter().map(|val| match val {
+        Value::Int(i) => *i,
+        _ => panic!("unexpected type in list"),
+    }).collect())
 }
 
 #[test]
