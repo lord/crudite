@@ -87,3 +87,5 @@ impl <Id: Hash + Clone + Eq + Debug> ArrayRef<Id> {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ObjectRef<Id>(pub Id);
+impl <Id: Hash + Clone + Eq + Debug> ObjectRef<Id> {
+}
