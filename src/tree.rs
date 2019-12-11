@@ -8,13 +8,21 @@ use std::hash::Hash;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Value<Id> {
+    String(StringRef<Id>),
+    Array(ArrayRef<Id>),
+    Object(ObjectRef<Id>),
+    Int(i64),
     True,
     False,
-    Int(i64),
     Null,
-    Collection(Id),
     Unset,
 }
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StringRef<Id>(pub Id);
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ArrayRef<Id>(pub Id);
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ObjectRef<Id>(pub Id);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum Child {
@@ -570,7 +578,8 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
 
     fn value_to_child(&self, value: &Value<Id>) -> Result<Option<Child>, TreeError> {
         match value {
-            Value::Collection(id) => {
+            Value::Object(ObjectRef(id)) | Value::Array(ArrayRef(id)) | Value::String(StringRef(id))  => {
+                // TODO should we validate types here?
                 let node_id = *self.id_to_node.get(&id).ok_or(TreeError::UnknownId)?;
                 Ok(Some(Child::Collection(node_id)))
             }
@@ -593,7 +602,12 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
                 let id = self.nodes[&node_id]
                     .id()
                     .expect("segment was somehow child of object?");
-                Value::Collection(id)
+                match self.get_type(id.clone()) {
+                    Ok(NodeType::String) => Value::String(StringRef(id)),
+                    Ok(NodeType::Object) => Value::Object(ObjectRef(id)),
+                    Ok(NodeType::Array) => Value::Array(ArrayRef(id)),
+                    _ => panic!("collection id did not have type of collection")
+                }
             }
         }
     }

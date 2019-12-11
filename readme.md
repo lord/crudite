@@ -31,6 +31,7 @@ starting with simple opset crdt, no splicing
 - [x] moving objects needs some work; need to check for cycles, need to remove item from previous parent. maybe can combine this fix with the orphaning system.
 - [ ] ergonomic api for accessing list/string items, update tests
 - [ ] rewrite tests to only use public api
+- [ ] need to keep track of parents; you shouldn't need to delete to re-add, this makes it so multiple moves from the same place won't compose correctly.
 
 ## future work
 
