@@ -1,14 +1,15 @@
 use super::tree::*;
+use super::value::{self, Value};
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 struct MyId(usize);
 
 fn debug_get_string(tree: &Tree<MyId>, id: MyId) -> Result<String, TreeError> {
-    let r = StringRef(id);
+    let r = value::StringRef(id);
     r.to_string(&tree)
 }
 
 fn debug_get_numbers(tree: &Tree<MyId>, id: MyId) -> Result<Vec<i64>, TreeError> {
-    let r = ArrayRef(id);
+    let r = value::ArrayRef(id);
     let res = r.to_vec(&tree);
     res.map(|vals| vals.iter().map(|val| match val {
         Value::Int(i) => *i,
@@ -27,11 +28,11 @@ fn object_assignment() {
     assert_eq!(Ok(None), tree.get_parent(MyId(0)));
 
     tree.construct_object(MyId(1)).unwrap();
-    tree.object_assign(MyId(0), "my key".to_string(), Value::Object(ObjectRef(MyId(1))))
+    tree.object_assign(MyId(0), "my key".to_string(), Value::Object(value::ObjectRef(MyId(1))))
         .unwrap();
 
     tree.construct_string(MyId(2)).unwrap();
-    tree.object_assign(MyId(1), "my key 2".to_string(), Value::Object(ObjectRef(MyId(2))))
+    tree.object_assign(MyId(1), "my key 2".to_string(), Value::Object(value::ObjectRef(MyId(2))))
         .unwrap();
 
     tree.insert_character(MyId(2), MyId(3), 'a').unwrap();
@@ -50,11 +51,11 @@ fn object_assignment() {
     assert_eq!(Ok(Some(MyId(1))), tree.get_parent(MyId(2)));
     assert_eq!(Ok(Some(MyId(2))), tree.get_parent(MyId(3)));
     assert_eq!(
-        Ok(Value::Object(ObjectRef(MyId(1)))),
+        Ok(Value::Object(value::ObjectRef(MyId(1)))),
         tree.object_get(MyId(0), "my key")
     );
     assert_eq!(
-        Ok(Value::String(StringRef(MyId(2)))),
+        Ok(Value::String(value::StringRef(MyId(2)))),
         tree.object_get(MyId(1), "my key 2")
     );
     assert_eq!(Ok(Value::Unset), tree.object_get(MyId(0), "my key 2"));
@@ -213,12 +214,12 @@ fn insert_and_delete_list_of_nums() {
 fn cant_move_things_with_object_parents() {
     let mut tree = Tree::new_with_object_root(MyId(0));
     tree.construct_object(MyId(1)).unwrap();
-    tree.object_assign(MyId(0), "my key".to_string(), Value::Object(ObjectRef(MyId(1))))
+    tree.object_assign(MyId(0), "my key".to_string(), Value::Object(value::ObjectRef(MyId(1))))
         .unwrap();
     // attempt second assignment
     assert_eq!(
         Err(TreeError::NodeAlreadyHadParent),
-        tree.object_assign(MyId(0), "my key 2".to_string(), Value::Object(ObjectRef(MyId(1))))
+        tree.object_assign(MyId(0), "my key 2".to_string(), Value::Object(value::ObjectRef(MyId(1))))
     );
 }
 
@@ -226,12 +227,12 @@ fn cant_move_things_with_object_parents() {
 fn cant_move_things_with_array_parents() {
     let mut tree = Tree::new_with_array_root(MyId(0));
     tree.construct_object(MyId(1)).unwrap();
-    tree.insert_list_item(MyId(0), MyId(2), Value::Object(ObjectRef(MyId(1))))
+    tree.insert_list_item(MyId(0), MyId(2), Value::Object(value::ObjectRef(MyId(1))))
         .unwrap();
     // attempt second insert
     assert_eq!(
         Err(TreeError::NodeAlreadyHadParent),
-        tree.insert_list_item(MyId(0), MyId(3), Value::Object(ObjectRef(MyId(1))))
+        tree.insert_list_item(MyId(0), MyId(3), Value::Object(value::ObjectRef(MyId(1))))
     );
 }
 
@@ -246,11 +247,11 @@ fn object_assignment_prevents_cycles() {
     assert_eq!(Ok(None), tree.get_parent(MyId(0)));
 
     tree.construct_object(MyId(1)).unwrap();
-    tree.object_assign(MyId(0), "my key".to_string(), Value::Object(ObjectRef(MyId(1))))
+    tree.object_assign(MyId(0), "my key".to_string(), Value::Object(value::ObjectRef(MyId(1))))
         .unwrap();
 
     tree.construct_object(MyId(2)).unwrap();
-    tree.object_assign(MyId(1), "my key 2".to_string(), Value::Object(ObjectRef(MyId(2))))
+    tree.object_assign(MyId(1), "my key 2".to_string(), Value::Object(value::ObjectRef(MyId(2))))
         .unwrap();
 
     // {"my key": {"my key 2": {}}}
@@ -266,6 +267,6 @@ fn object_assignment_prevents_cycles() {
     // next, make the now-orphaned 1 a child of 2
     assert_eq!(
         Err(TreeError::EditWouldCauseCycle),
-        tree.object_assign(MyId(2), "my key 3".to_string(), Value::Object(ObjectRef(MyId(1))))
+        tree.object_assign(MyId(2), "my key 3".to_string(), Value::Object(value::ObjectRef(MyId(1))))
     );
 }

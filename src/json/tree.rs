@@ -2,88 +2,8 @@ use im::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::hash::Hash;
 use super::sequence;
+use super::value::{self, Value};
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Value<Id> {
-    String(StringRef<Id>),
-    Array(ArrayRef<Id>),
-    Object(ObjectRef<Id>),
-    Int(i64),
-    True,
-    False,
-    Null,
-    Unset,
-}
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct StringRef<Id>(pub Id);
-impl <Id: Hash + Clone + Eq + Debug> StringRef<Id> {
-    pub fn to_string(&self, tree: &Tree<Id>) -> Result<String, TreeError> {
-        let string_node_id = tree
-            .id_to_node
-            .get(&self.0)
-            .ok_or(TreeError::UnknownId)?;
-        let node = tree
-            .nodes
-            .get(&string_node_id)
-            .expect("node_id listed in id_to_node did not exist.");
-        let mut next = match &node.data {
-            NodeData::String { start, .. } => *start,
-            _ => return Err(TreeError::UnexpectedNodeType),
-        };
-        let mut string = String::new();
-        while next != *string_node_id {
-            let node = tree
-                .nodes
-                .get(&next)
-                .expect("node_id listed in segment adjacency did not exist.");
-            next = match &node.data {
-                NodeData::StringSegment { next, contents, .. } => {
-                    string.push_str(contents);
-                    *next
-                }
-                _ => panic!("debug_get_string called on non-string Id"),
-            };
-        }
-        Ok(string)
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ArrayRef<Id>(pub Id);
-impl <Id: Hash + Clone + Eq + Debug> ArrayRef<Id> {
-    pub fn to_vec(&self, tree: &Tree<Id>) -> Result<Vec<Value<Id>>, TreeError> {
-        let string_node_id = tree
-            .id_to_node
-            .get(&self.0)
-            .ok_or(TreeError::UnknownId)?;
-        let node = tree
-            .nodes
-            .get(&string_node_id)
-            .expect("node_id listed in id_to_node did not exist.");
-        let mut next = match &node.data {
-            NodeData::Array { start, .. } => *start,
-            _ => return Err(TreeError::UnexpectedNodeType),
-        };
-        let mut children = Vec::new();
-        while next != *string_node_id {
-            let node = tree
-                .nodes
-                .get(&next)
-                .expect("node_id listed in segment adjacency did not exist.");
-            next = match &node.data {
-                NodeData::ArraySegment { next, contents, .. } => {
-                    children.extend(contents.iter());
-                    *next
-                }
-                _ => panic!("debug_get_string called on non-string Id"),
-            };
-        }
-        let values = children.iter().map(|child| tree.child_to_value(Some(child))).collect();
-        Ok(values)
-    }
-}
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ObjectRef<Id>(pub Id);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum Child {
@@ -637,9 +557,9 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         Ok(())
     }
 
-    fn value_to_child(&self, value: &Value<Id>) -> Result<Option<Child>, TreeError> {
+    pub(super) fn value_to_child(&self, value: &Value<Id>) -> Result<Option<Child>, TreeError> {
         match value {
-            Value::Object(ObjectRef(id)) | Value::Array(ArrayRef(id)) | Value::String(StringRef(id))  => {
+            Value::Object(value::ObjectRef(id)) | Value::Array(value::ArrayRef(id)) | Value::String(value::StringRef(id))  => {
                 // TODO should we validate types here?
                 let node_id = *self.id_to_node.get(&id).ok_or(TreeError::UnknownId)?;
                 Ok(Some(Child::Collection(node_id)))
@@ -652,7 +572,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         }
     }
 
-    fn child_to_value(&self, child: Option<&Child>) -> Value<Id> {
+    pub(super) fn child_to_value(&self, child: Option<&Child>) -> Value<Id> {
         match child {
             None => Value::Unset,
             Some(Child::True) => Value::True,
@@ -664,9 +584,9 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
                     .id()
                     .expect("segment was somehow child of object?");
                 match self.get_type(id.clone()) {
-                    Ok(NodeType::String) => Value::String(StringRef(id)),
-                    Ok(NodeType::Object) => Value::Object(ObjectRef(id)),
-                    Ok(NodeType::Array) => Value::Array(ArrayRef(id)),
+                    Ok(NodeType::String) => Value::String(value::StringRef(id)),
+                    Ok(NodeType::Object) => Value::Object(value::ObjectRef(id)),
+                    Ok(NodeType::Array) => Value::Array(value::ArrayRef(id)),
                     _ => panic!("collection id did not have type of collection")
                 }
             }
