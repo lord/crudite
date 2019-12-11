@@ -28,6 +28,7 @@ fn object_assignment() {
     // {}
     // ^
     // 0
+    assert_eq!(Ok(value::Parent::None), value::ObjectRef(MyId(0)).parent(&tree));
     assert_eq!(Ok(NodeType::Object), tree.get_type(MyId(0)));
     assert_eq!(Ok(None), tree.get_parent(MyId(0)));
 
