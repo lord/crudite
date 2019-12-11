@@ -648,31 +648,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         }
     }
 
-    // TODO should be able to check if this is the String/ArrayIndex representing front of item,
-    // and return just the same Id if that is the case.
-    pub(super) fn get_parent(&self, id: &Id) -> Result<value::Parent<Id>, TreeError> {
-        let node_id = self.id_to_node.get(id).ok_or(TreeError::UnknownId)?;
-        let node = self
-            .nodes
-            .get(&node_id)
-            .expect("node_id listed in id_to_node did not exist.");
-        let parent_id = match node.parent {
-            None => return Ok(value::Parent::None),
-            Some(v) => v,
-        };
-        let parent = self
-            .nodes
-            .get(&parent_id)
-            .expect("node_id listed in id_to_node did not exist.");
-        let id = parent.id().unwrap();
-        match self.get_type(id.clone()) {
-            Ok(NodeType::Array) => Ok(value::Parent::Array(value::ArrayRef(id))),
-            Ok(NodeType::Object) => Ok(value::Parent::Object(value::ObjectRef(id))),
-            _ => panic!("parent was of unexpected type"),
-        }
-    }
-
-    pub(super) fn get_parent_old(&self, id: Id) -> Result<Option<Id>, TreeError> {
+    pub(super) fn get_parent(&self, id: Id) -> Result<Option<Id>, TreeError> {
         let node_id = self.id_to_node.get(&id).ok_or(TreeError::UnknownId)?;
         let node = self
             .nodes
