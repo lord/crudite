@@ -1,4 +1,4 @@
-use super::{Node, NodeId, Tree, TreeError};
+use super::tree::{Node, NodeId, Tree, TreeError};
 use std::fmt::Debug;
 use std::hash::Hash;
 

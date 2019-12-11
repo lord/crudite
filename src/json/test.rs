@@ -1,4 +1,4 @@
-use super::*;
+use super::tree::*;
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 struct MyId(usize);
 

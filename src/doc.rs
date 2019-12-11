@@ -1,5 +1,5 @@
 use crate::opset;
-use crate::tree;
+use crate::json;
 use std::cmp::Ordering;
 
 const CACHE_GAP: usize = 10;
@@ -14,7 +14,7 @@ pub const ROOT_ID: Id = Id { num: 0 };
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DocOp {
     pub timestamp: u64,
-    pub edits: Vec<tree::Edit<Id>>,
+    pub edits: Vec<json::Edit<Id>>,
 }
 impl PartialOrd for DocOp {
     fn partial_cmp(&self, other: &DocOp) -> Option<Ordering> {
@@ -28,8 +28,8 @@ impl Ord for DocOp {
     }
 }
 
-impl opset::Operation<tree::Tree<Id>> for DocOp {
-    fn apply(&self, tree: &mut tree::Tree<Id>) {
+impl opset::Operation<json::Tree<Id>> for DocOp {
+    fn apply(&self, tree: &mut json::Tree<Id>) {
         for edit in &self.edits {
             let _ = tree.update(edit);
         }
@@ -37,13 +37,13 @@ impl opset::Operation<tree::Tree<Id>> for DocOp {
 }
 
 pub struct Doc {
-    opset: opset::Opset<DocOp, tree::Tree<Id>>,
+    opset: opset::Opset<DocOp, json::Tree<Id>>,
 }
 
 impl Doc {
     pub fn new() -> Doc {
         Doc {
-            opset: opset::Opset::new(tree::Tree::new_with_object_root(ROOT_ID), CACHE_GAP),
+            opset: opset::Opset::new(json::Tree::new_with_object_root(ROOT_ID), CACHE_GAP),
         }
     }
 

@@ -1,10 +1,7 @@
-mod sequence;
-#[cfg(test)]
-mod test;
-
 use im::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::hash::Hash;
+use super::sequence;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Value<Id> {
@@ -25,7 +22,7 @@ pub struct ArrayRef<Id>(pub Id);
 pub struct ObjectRef<Id>(pub Id);
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-enum Child {
+pub(super) enum Child {
     True,
     False,
     Int(i64),
@@ -102,7 +99,7 @@ pub enum TreeError {
 }
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
-struct NodeId(usize);
+pub(super) struct NodeId(usize);
 
 /// This struct is left public for others who would like to build their own CRDT library or have a
 /// custom setup of some kind. Most crudite users will not need to use this.
@@ -131,20 +128,20 @@ pub struct Tree<Id: Hash + Clone + Eq + Debug> {
     /// Maps external IDs to their position in the tree. In the case of Segments of a sequence,
     /// futher disambiguation may be necessary to find the exact character this represents within
     /// the string.
-    id_to_node: HashMap<Id, NodeId>,
+    pub(super) id_to_node: HashMap<Id, NodeId>,
 
     /// Maps node ids to node data.
-    nodes: HashMap<NodeId, Node<Id>>,
+    pub(super) nodes: HashMap<NodeId, Node<Id>>,
 }
 
 #[derive(Clone, Debug)]
-struct Node<Id: Hash + Clone + Eq + Debug> {
-    data: NodeData<Id>,
-    parent: Option<NodeId>,
+pub(super) struct Node<Id: Hash + Clone + Eq + Debug> {
+    pub(super) data: NodeData<Id>,
+    pub(super) parent: Option<NodeId>,
 }
 
 #[derive(Clone, Debug)]
-enum NodeData<Id: Hash + Clone + Eq + Debug> {
+pub(super) enum NodeData<Id: Hash + Clone + Eq + Debug> {
     Object {
         items: HashMap<String, Child>,
         id: Id,
@@ -212,7 +209,7 @@ impl<Id: Hash + Clone + Eq + Debug> Node<Id> {
 
     /// Creates a new, empty NodeData for a segment with the same kind. `prev` and `next` are
     /// expected to be overwritten by the calling function.
-    fn segment_create(&self) -> NodeData<Id> {
+    pub(super) fn segment_create(&self) -> NodeData<Id> {
         match &self.data {
             NodeData::StringSegment { prev, next, .. } => NodeData::StringSegment {
                 prev: *prev,
@@ -244,7 +241,7 @@ impl<Id: Hash + Clone + Eq + Debug> Node<Id> {
     }
 
     /// Returns (prev, next) for segments, and (end, start) for sequence containers
-    fn segment_adjacencies(&self) -> (&NodeId, &NodeId) {
+    pub(super) fn segment_adjacencies(&self) -> (&NodeId, &NodeId) {
         match &self.data {
             NodeData::String { end, start, .. } => (end, start),
             NodeData::StringSegment { prev, next, .. } => (prev, next),
@@ -255,7 +252,7 @@ impl<Id: Hash + Clone + Eq + Debug> Node<Id> {
     }
 
     /// Returns (prev, next) for segments, and (end, start) for sequence containers
-    fn segment_adjacencies_mut(&mut self) -> (&mut NodeId, &mut NodeId) {
+    pub(super) fn segment_adjacencies_mut(&mut self) -> (&mut NodeId, &mut NodeId) {
         match &mut self.data {
             NodeData::String { end, start, .. } => (end, start),
             NodeData::StringSegment { prev, next, .. } => (prev, next),
@@ -265,7 +262,7 @@ impl<Id: Hash + Clone + Eq + Debug> Node<Id> {
         }
     }
 
-    fn segment_ids(&self) -> Result<&Vec<(Id, Option<usize>)>, TreeError> {
+    pub(super) fn segment_ids(&self) -> Result<&Vec<(Id, Option<usize>)>, TreeError> {
         match &self.data {
             NodeData::StringSegment { ids, .. } => Ok(ids),
             NodeData::ArraySegment { ids, .. } => Ok(ids),
@@ -273,7 +270,7 @@ impl<Id: Hash + Clone + Eq + Debug> Node<Id> {
         }
     }
 
-    fn segment_ids_mut(&mut self) -> Result<&mut Vec<(Id, Option<usize>)>, TreeError> {
+    pub(super) fn segment_ids_mut(&mut self) -> Result<&mut Vec<(Id, Option<usize>)>, TreeError> {
         match &mut self.data {
             NodeData::StringSegment { ids, .. } => Ok(ids),
             NodeData::ArraySegment { ids, .. } => Ok(ids),
@@ -281,7 +278,7 @@ impl<Id: Hash + Clone + Eq + Debug> Node<Id> {
         }
     }
 
-    fn segment_contents_len(&self) -> Result<usize, TreeError> {
+    pub(super) fn segment_contents_len(&self) -> Result<usize, TreeError> {
         match &self.data {
             NodeData::StringSegment { contents, .. } => Ok(contents.len()),
             NodeData::ArraySegment { contents, .. } => Ok(contents.len()),
@@ -289,7 +286,7 @@ impl<Id: Hash + Clone + Eq + Debug> Node<Id> {
         }
     }
 
-    fn segment_is_container(&self) -> bool {
+    pub(super) fn segment_is_container(&self) -> bool {
         match &self.data {
             NodeData::String { .. } => true,
             NodeData::Array { .. } => true,
@@ -297,7 +294,7 @@ impl<Id: Hash + Clone + Eq + Debug> Node<Id> {
         }
     }
 
-    fn segment_split_contents_into(&mut self, other: &mut Node<Id>, split_index: usize) {
+    pub(super) fn segment_split_contents_into(&mut self, other: &mut Node<Id>, split_index: usize) {
         match (&mut self.data, &mut other.data) {
             (
                 NodeData::StringSegment {
@@ -414,7 +411,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
 
     /// Constructs a new empty object within the `Tree`. Newly constructed values have no parent or
     /// place in the tree until placed with an `assign` call.
-    fn construct_object(&mut self, id: Id) -> Result<(), TreeError> {
+    pub(super) fn construct_object(&mut self, id: Id) -> Result<(), TreeError> {
         self.construct_simple(
             id.clone(),
             NodeData::Object {
@@ -427,7 +424,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
 
     /// Constructs a new empty string within the `Tree`. Newly constructed values have no parent or
     /// place in the tree until placed with an `assign` call.
-    fn construct_string(&mut self, id: Id) -> Result<(), TreeError> {
+    pub(super) fn construct_string(&mut self, id: Id) -> Result<(), TreeError> {
         let segment_id = self.next_id();
         let string_id = self.construct_simple(
             id.clone(),
@@ -454,7 +451,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
 
     /// Constructs a new empty string within the `Tree`. Newly constructed values have no parent or
     /// place in the tree until placed with an `assign` call.
-    fn construct_array(&mut self, id: Id) -> Result<(), TreeError> {
+    pub(super) fn construct_array(&mut self, id: Id) -> Result<(), TreeError> {
         let segment_id = self.next_id();
         let array_id = self.construct_simple(
             id.clone(),
@@ -479,7 +476,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         Ok(())
     }
 
-    fn next_id(&mut self) -> NodeId {
+    pub(super) fn next_id(&mut self) -> NodeId {
         let res = self.next_node;
         self.next_node.0 += 1;
         res
@@ -616,7 +613,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     // get multi value registers which would be sick
     /// Moves `value` to `object[key]`. If `value` is `None`, the key is deleted. If there was a
     /// previous collection assigned to this key, it is reparented into the tree's `orphan` list.
-    fn object_assign(
+    pub(super) fn object_assign(
         &mut self,
         object: Id,
         key: String,
@@ -643,7 +640,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         }
     }
 
-    fn object_get(&self, object: Id, key: &str) -> Result<Value<Id>, TreeError> {
+    pub(super) fn object_get(&self, object: Id, key: &str) -> Result<Value<Id>, TreeError> {
         let object_node_id = *self.id_to_node.get(&object).ok_or(TreeError::UnknownId)?;
         let child = match &self.nodes[&object_node_id].data {
             NodeData::Object { items, id: _ } => items.get(key),
@@ -653,7 +650,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     }
 
     /// Gets the type of `Id`.
-    fn get_type(&self, id: Id) -> Result<NodeType, TreeError> {
+    pub(super) fn get_type(&self, id: Id) -> Result<NodeType, TreeError> {
         let node_id = self.id_to_node.get(&id).ok_or(TreeError::UnknownId)?;
         let node = self
             .nodes
@@ -668,7 +665,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         }
     }
 
-    fn get_parent(&self, id: Id) -> Result<Option<Id>, TreeError> {
+    pub(super) fn get_parent(&self, id: Id) -> Result<Option<Id>, TreeError> {
         let node_id = self.id_to_node.get(&id).ok_or(TreeError::UnknownId)?;
         let node = self
             .nodes
@@ -693,7 +690,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     /// the character `append_id`. If `append_id` is the ID of a string instead of a character,
     /// `character` will be inserted at the beginning of the string. `append_id` may be a deleted
     /// character, if the tombstone is still in the tree.
-    fn insert_character(
+    pub(super) fn insert_character(
         &mut self,
         append_id: Id,
         character_id: Id,
@@ -712,7 +709,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
 
     /// Deletes the character with ID `char_id`. A tombstone is left in the string, allowing future
     /// `insert_character` calls to reference this `char_id` as their `append_id`.
-    fn delete_character(&mut self, char_id: Id) -> Result<(), TreeError> {
+    pub(super) fn delete_character(&mut self, char_id: Id) -> Result<(), TreeError> {
         sequence::delete(self, char_id, |string_index, node| match &mut node.data {
             NodeData::StringSegment { contents, .. } => {
                 let deleted_char = contents.remove(string_index);
@@ -726,7 +723,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     /// the character `append_id`. If `append_id` is the ID of a string instead of a character,
     /// `character` will be inserted at the beginning of the string. `append_id` may be a deleted
     /// character, if the tombstone is still in the tree.
-    fn insert_list_item(
+    pub(super) fn insert_list_item(
         &mut self,
         append_id: Id,
         character_id: Id,
@@ -771,7 +768,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
 
     /// Deletes the item in the list with ID `item_id`. A tombstone is left in the string, allowing
     /// future `insert_character` calls to reference this `char_id` as their `append_id`.
-    fn delete_list_item(&mut self, item_id: Id) -> Result<Value<Id>, TreeError> {
+    pub(super) fn delete_list_item(&mut self, item_id: Id) -> Result<Value<Id>, TreeError> {
         let mut child_opt = None;
         sequence::delete(self, item_id, |array_index, node| match &mut node.data {
             NodeData::ArraySegment { contents, .. } => {
