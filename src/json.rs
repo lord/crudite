@@ -4,5 +4,5 @@ mod test;
 mod tree;
 mod value;
 
-pub use tree::{Tree, Edit, TreeError};
-pub use value::{Value, StringRef, ArrayRef, ObjectRef};
+pub use tree::{Edit, Tree, TreeError};
+pub use value::{ArrayRef, ObjectRef, StringRef, Value};

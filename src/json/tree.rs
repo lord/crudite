@@ -1,9 +1,8 @@
+use super::sequence;
+use super::value::{self, Value};
 use im::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::hash::Hash;
-use super::sequence;
-use super::value::{self, Value};
-
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) enum Child {
@@ -559,7 +558,9 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
 
     pub(super) fn value_to_child(&self, value: &Value<Id>) -> Result<Option<Child>, TreeError> {
         match value {
-            Value::Object(value::ObjectRef(id)) | Value::Array(value::ArrayRef(id)) | Value::String(value::StringRef(id))  => {
+            Value::Object(value::ObjectRef(id))
+            | Value::Array(value::ArrayRef(id))
+            | Value::String(value::StringRef(id)) => {
                 // TODO should we validate types here?
                 let node_id = *self.id_to_node.get(&id).ok_or(TreeError::UnknownId)?;
                 Ok(Some(Child::Collection(node_id)))
@@ -587,7 +588,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
                     Ok(NodeType::String) => Value::String(value::StringRef(id)),
                     Ok(NodeType::Object) => Value::Object(value::ObjectRef(id)),
                     Ok(NodeType::Array) => Value::Array(value::ArrayRef(id)),
-                    _ => panic!("collection id did not have type of collection")
+                    _ => panic!("collection id did not have type of collection"),
                 }
             }
         }

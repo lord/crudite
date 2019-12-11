@@ -18,7 +18,7 @@ pub enum Value<Id> {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StringRef<Id>(pub Id);
-impl <Id: Hash + Clone + Eq + Debug> StringRef<Id> {
+impl<Id: Hash + Clone + Eq + Debug> StringRef<Id> {
     pub fn to_string(&self, tree: &tree::Tree<Id>) -> Result<String, tree::TreeError> {
         let string_node_id = tree
             .id_to_node
@@ -52,7 +52,7 @@ impl <Id: Hash + Clone + Eq + Debug> StringRef<Id> {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ArrayRef<Id>(pub Id);
-impl <Id: Hash + Clone + Eq + Debug> ArrayRef<Id> {
+impl<Id: Hash + Clone + Eq + Debug> ArrayRef<Id> {
     pub fn to_vec(&self, tree: &tree::Tree<Id>) -> Result<Vec<Value<Id>>, tree::TreeError> {
         let string_node_id = tree
             .id_to_node
@@ -80,12 +80,14 @@ impl <Id: Hash + Clone + Eq + Debug> ArrayRef<Id> {
                 _ => panic!("debug_get_string called on non-string Id"),
             };
         }
-        let values = children.iter().map(|child| tree.child_to_value(Some(child))).collect();
+        let values = children
+            .iter()
+            .map(|child| tree.child_to_value(Some(child)))
+            .collect();
         Ok(values)
     }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ObjectRef<Id>(pub Id);
-impl <Id: Hash + Clone + Eq + Debug> ObjectRef<Id> {
-}
+impl<Id: Hash + Clone + Eq + Debug> ObjectRef<Id> {}

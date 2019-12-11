@@ -1,5 +1,5 @@
-use crate::opset;
 use crate::json;
+use crate::opset;
 use std::cmp::Ordering;
 
 const CACHE_GAP: usize = 10;
