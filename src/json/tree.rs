@@ -17,28 +17,27 @@ pub(super) enum Child {
 pub enum Edit<Id> {
     ArrayCreate {
         /// id of new list
-        id: Id,
+        id: value::ArrayRef<Id>,
     },
     ArrayInsert {
-        /// If new item is at start of list, `prev` is the parent list object. otherwise, it's a
-        /// id specified in a previous `ArrayInsert` operation.
-        prev: Id,
+        /// Position to insert at.
+        index: value::ArrayIndex<Id>,
         /// Insertion id. This is used for deleting list items, and in other `ArrayInsert`'s `prev`.
-        id: Id,
+        id: value::ArrayIndex<Id>,
         /// Item to be inserted. If this item had a prevous parent, it is removed from that parent.
         item: Value<Id>,
     },
     ArrayDelete {
-        /// Id of character to delete
-        id: Id,
+        /// Id of index to delete
+        id: value::ArrayIndex<Id>,
     },
     MapCreate {
         /// id of new map
-        id: Id,
+        id: value::ObjectRef<Id>,
     },
     MapInsert {
         /// Id of parent map
-        parent: Id,
+        parent: value::ObjectRef<Id>,
         /// Key of item in hashmap
         key: String,
         /// Item to be set. If this item had a prevous parent, it is removed from that parent.
@@ -46,20 +45,19 @@ pub enum Edit<Id> {
     },
     TextCreate {
         /// id of new text
-        id: Id,
+        id: value::StringRef<Id>,
     },
     TextInsert {
-        /// If new item is at start of text, `prev` is the parent text object. otherwise, it's a
-        /// id specified in a previous `TextInsert` operation.
-        prev: Id,
+        /// Position to insert at.
+        index: value::StringIndex<Id>,
         /// Id of newly created character
-        id: Id,
+        id: value::StringIndex<Id>,
         /// Actual new character value
         character: char,
     },
     TextDelete {
         /// Id of character to delete
-        id: Id,
+        id: value::StringIndex<Id>,
     },
 }
 
@@ -332,22 +330,22 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
 
     pub fn update(&mut self, edit: &Edit<Id>) -> Result<(), TreeError> {
         match edit {
-            Edit::ArrayCreate { id } => self.construct_array(id.clone()),
-            Edit::ArrayInsert { prev, id, item } => {
-                self.insert_list_item(prev.clone(), id.clone(), item.clone())
+            Edit::ArrayCreate { id } => self.construct_array(id.0.clone()),
+            Edit::ArrayInsert { index, id, item } => {
+                self.insert_list_item(index.0.clone(), id.0.clone(), item.clone())
             }
-            Edit::ArrayDelete { id } => self.delete_list_item(id.clone()).map(|_| ()),
-            Edit::MapCreate { id } => self.construct_object(id.clone()),
+            Edit::ArrayDelete { id } => self.delete_list_item(id.0.clone()).map(|_| ()),
+            Edit::MapCreate { id } => self.construct_object(id.0.clone()),
             Edit::MapInsert { parent, key, item } => self
-                .object_assign(parent.clone(), key.clone(), item.clone())
+                .object_assign(parent.0.clone(), key.clone(), item.clone())
                 .map(|_| ()),
-            Edit::TextCreate { id } => self.construct_string(id.clone()),
+            Edit::TextCreate { id } => self.construct_string(id.0.clone()),
             Edit::TextInsert {
-                prev,
+                index,
                 id,
                 character,
-            } => self.insert_character(prev.clone(), id.clone(), *character),
-            Edit::TextDelete { id } => self.delete_character(id.clone()),
+            } => self.insert_character(index.0.clone(), id.0.clone(), *character),
+            Edit::TextDelete { id } => self.delete_character(id.0.clone()),
         }
     }
 

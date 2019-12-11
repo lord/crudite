@@ -51,6 +51,11 @@ impl<Id: Hash + Clone + Eq + Debug> StringRef<Id> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StringIndex<Id>(pub Id);
+impl<Id: Hash + Clone + Eq + Debug> StringIndex<Id> {
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ArrayRef<Id>(pub Id);
 impl<Id: Hash + Clone + Eq + Debug> ArrayRef<Id> {
     pub fn to_vec(&self, tree: &tree::Tree<Id>) -> Result<Vec<Value<Id>>, tree::TreeError> {
@@ -86,6 +91,11 @@ impl<Id: Hash + Clone + Eq + Debug> ArrayRef<Id> {
             .collect();
         Ok(values)
     }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ArrayIndex<Id>(pub Id);
+impl<Id: Hash + Clone + Eq + Debug> ArrayIndex<Id> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
