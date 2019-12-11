@@ -54,4 +54,8 @@ impl Doc {
     pub fn update_from_iter<I: std::iter::Iterator<Item = DocOp>>(&mut self, iter: I) {
         self.opset.update_from_iter(iter);
     }
+
+    pub fn tree(&self) -> &json::Tree<Id> {
+        self.opset.state()
+    }
 }
