@@ -5,4 +5,4 @@ mod tree;
 mod value;
 
 pub use tree::{Edit, Tree, TreeError};
-pub use value::{ArrayRef, ObjectRef, StringRef, Value};
+pub use value::{ArrayRef, ObjectRef, StringRef, StringIndex, ArrayIndex, Value};
