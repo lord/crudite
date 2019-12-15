@@ -28,7 +28,10 @@ fn object_assignment() {
     // {}
     // ^
     // 0
-    assert_eq!(Ok(value::Parent::None), value::ObjectRef(MyId(0)).parent(&tree));
+    assert_eq!(
+        Ok(value::Parent::None),
+        value::ObjectRef(MyId(0)).parent(&tree)
+    );
     assert_eq!(Ok(NodeType::Object), tree.get_type(MyId(0)));
 
     tree.construct_object(MyId(1)).unwrap();
@@ -58,9 +61,18 @@ fn object_assignment() {
     assert_eq!(Ok(NodeType::Object), tree.get_type(MyId(1)));
     assert_eq!(Ok(NodeType::String), tree.get_type(MyId(2)));
     assert_eq!(Ok(NodeType::Character), tree.get_type(MyId(3)));
-    assert_eq!(Ok(value::Parent::Object(value::ObjectRef(MyId(0)))), value::ObjectRef(MyId(1)).parent(&tree));
-    assert_eq!(Ok(value::Parent::Object(value::ObjectRef(MyId(1)))), value::ObjectRef(MyId(2)).parent(&tree));
-    assert_eq!(Ok(value::StringRef(MyId(2))), value::StringIndex(MyId(3)).parent(&tree));
+    assert_eq!(
+        Ok(value::Parent::Object(value::ObjectRef(MyId(0)))),
+        value::ObjectRef(MyId(1)).parent(&tree)
+    );
+    assert_eq!(
+        Ok(value::Parent::Object(value::ObjectRef(MyId(1)))),
+        value::ObjectRef(MyId(2)).parent(&tree)
+    );
+    assert_eq!(
+        Ok(value::StringRef(MyId(2))),
+        value::StringIndex(MyId(3)).parent(&tree)
+    );
     assert_eq!(
         Ok(Value::Object(value::ObjectRef(MyId(1)))),
         tree.object_get(MyId(0), "my key")
@@ -83,10 +95,22 @@ fn object_assignment() {
     assert_eq!(Err(TreeError::UnknownId), tree.get_type(MyId(1)));
     assert_eq!(Err(TreeError::UnknownId), tree.get_type(MyId(2)));
     assert_eq!(Err(TreeError::UnknownId), tree.get_type(MyId(3)));
-    assert_eq!(Ok(value::Parent::None), value::ObjectRef(MyId(0)).parent(&tree));
-    assert_eq!(Err(TreeError::UnknownId), value::ObjectRef(MyId(1)).parent(&tree));
-    assert_eq!(Err(TreeError::UnknownId), value::ObjectRef(MyId(2)).parent(&tree));
-    assert_eq!(Err(TreeError::UnknownId), value::StringIndex(MyId(3)).parent(&tree));
+    assert_eq!(
+        Ok(value::Parent::None),
+        value::ObjectRef(MyId(0)).parent(&tree)
+    );
+    assert_eq!(
+        Err(TreeError::UnknownId),
+        value::ObjectRef(MyId(1)).parent(&tree)
+    );
+    assert_eq!(
+        Err(TreeError::UnknownId),
+        value::ObjectRef(MyId(2)).parent(&tree)
+    );
+    assert_eq!(
+        Err(TreeError::UnknownId),
+        value::StringIndex(MyId(3)).parent(&tree)
+    );
 
     assert_eq!(Ok(Value::True), tree.object_get(MyId(0), "my key"));
 
@@ -264,7 +288,10 @@ fn object_assignment_prevents_cycles() {
     // ^
     // 0
     assert_eq!(Ok(NodeType::Object), tree.get_type(MyId(0)));
-    assert_eq!(Ok(value::Parent::None), value::ObjectRef(MyId(0)).parent(&tree));
+    assert_eq!(
+        Ok(value::Parent::None),
+        value::ObjectRef(MyId(0)).parent(&tree)
+    );
 
     tree.construct_object(MyId(1)).unwrap();
     tree.object_assign(

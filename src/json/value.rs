@@ -22,10 +22,13 @@ pub enum Parent<Id> {
     None,
 }
 
-pub(super) fn get_parent<Id: Hash + Clone + Eq + Debug>(tree: &tree::Tree<Id>, id: &Id) -> Result<Parent<Id>,tree::TreeError> {
+pub(super) fn get_parent<Id: Hash + Clone + Eq + Debug>(
+    tree: &tree::Tree<Id>,
+    id: &Id,
+) -> Result<Parent<Id>, tree::TreeError> {
     let id = match tree.get_parent(id.clone())? {
         Some(v) => v,
-        None => return Ok(Parent::None)
+        None => return Ok(Parent::None),
     };
     match tree.get_type(id.clone()) {
         Ok(tree::NodeType::Array) => Ok(Parent::Array(ArrayRef(id))),
@@ -33,7 +36,6 @@ pub(super) fn get_parent<Id: Hash + Clone + Eq + Debug>(tree: &tree::Tree<Id>, i
         e => panic!("parent was of unexpected type: {:?}", e),
     }
 }
-
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StringRef<Id>(pub Id);
@@ -79,7 +81,10 @@ impl<Id: Hash + Clone + Eq + Debug> StringIndex<Id> {
     pub fn parent(&self, tree: &tree::Tree<Id>) -> Result<StringRef<Id>, tree::TreeError> {
         match tree.get_type(self.0.clone()) {
             Ok(tree::NodeType::String) => Ok(StringRef(self.0.clone())),
-            Ok(tree::NodeType::Character) => Ok(StringRef(tree.get_parent(self.0.clone())?.expect("Stringsegment should have parent"))),
+            Ok(tree::NodeType::Character) => Ok(StringRef(
+                tree.get_parent(self.0.clone())?
+                    .expect("Stringsegment should have parent"),
+            )),
             Ok(_) => Err(tree::TreeError::UnexpectedNodeType),
             Err(e) => Err(e),
         }
@@ -134,7 +139,10 @@ impl<Id: Hash + Clone + Eq + Debug> ArrayIndex<Id> {
     pub fn parent(&self, tree: &tree::Tree<Id>) -> Result<ArrayRef<Id>, tree::TreeError> {
         match tree.get_type(self.0.clone()) {
             Ok(tree::NodeType::Array) => Ok(ArrayRef(self.0.clone())),
-            Ok(tree::NodeType::ArrayEntry) => Ok(ArrayRef(tree.get_parent(self.0.clone())?.expect("arraysegment should have parent"))),
+            Ok(tree::NodeType::ArrayEntry) => Ok(ArrayRef(
+                tree.get_parent(self.0.clone())?
+                    .expect("arraysegment should have parent"),
+            )),
             _ => Err(tree::TreeError::UnexpectedNodeType),
         }
     }
