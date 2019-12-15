@@ -157,7 +157,10 @@ impl<Id: Hash + Clone + Eq + Debug> ObjectRef<Id> {
     }
 
     pub fn get(&self, tree: &tree::Tree<Id>, key: &str) -> Result<Value<Id>, tree::TreeError> {
-        let object_node_id = tree.id_to_node.get(&self.0).ok_or(tree::TreeError::UnknownId)?;
+        let object_node_id = tree
+            .id_to_node
+            .get(&self.0)
+            .ok_or(tree::TreeError::UnknownId)?;
         let child = match &tree.nodes[&object_node_id].data {
             tree::NodeData::Object { items, id: _ } => items.get(key),
             _ => return Err(tree::TreeError::UnexpectedNodeType),
