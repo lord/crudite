@@ -19,13 +19,9 @@ fn object_assignment() {
     // {}
     // ^
     // 0
-    assert_eq!(
-        Ok(value::Parent::None),
-        value::ObjectRef(MyId(0)).parent(&tree)
-    );
-    assert_eq!(Ok(NodeType::Object), tree.get_type(MyId(0)));
+    assert_eq!(Ok(value::Parent::None), value::ObjectRef(MyId(0)).parent(&tree));
 
-    tree.construct_object(MyId(1)).unwrap();
+    tree.update(&Edit::MapCreate {id: value::ObjectRef(MyId(1))}).unwrap();
     tree.object_assign(
         MyId(0),
         "my key".to_string(),
@@ -33,7 +29,7 @@ fn object_assignment() {
     )
     .unwrap();
 
-    tree.construct_string(MyId(2)).unwrap();
+    tree.update(&Edit::TextCreate {id: value::StringRef(MyId(2))}).unwrap();
     tree.object_assign(
         MyId(1),
         "my key 2".to_string(),
@@ -297,7 +293,7 @@ fn insert_and_delete_list_of_nums() {
 #[test]
 fn cant_move_things_with_object_parents() {
     let mut tree = Tree::new_with_object_root(MyId(0));
-    tree.construct_object(MyId(1)).unwrap();
+    tree.update(&Edit::MapCreate { id: value::ObjectRef(MyId(1)) }).unwrap();
     tree.object_assign(
         MyId(0),
         "my key".to_string(),
@@ -318,7 +314,7 @@ fn cant_move_things_with_object_parents() {
 #[test]
 fn cant_move_things_with_array_parents() {
     let mut tree = Tree::new_with_array_root(MyId(0));
-    tree.construct_object(MyId(1)).unwrap();
+    tree.update(&Edit::MapCreate { id: value::ObjectRef(MyId(1)) }).unwrap();
     tree.insert_list_item(MyId(0), MyId(2), Value::Object(value::ObjectRef(MyId(1))))
         .unwrap();
     // attempt second insert
@@ -341,7 +337,7 @@ fn object_assignment_prevents_cycles() {
         value::ObjectRef(MyId(0)).parent(&tree)
     );
 
-    tree.construct_object(MyId(1)).unwrap();
+    tree.update(&Edit::MapCreate { id: value::ObjectRef(MyId(1)) }).unwrap();
     tree.object_assign(
         MyId(0),
         "my key".to_string(),
@@ -349,7 +345,7 @@ fn object_assignment_prevents_cycles() {
     )
     .unwrap();
 
-    tree.construct_object(MyId(2)).unwrap();
+    tree.update(&Edit::MapCreate { id: value::ObjectRef(MyId(2)) }).unwrap();
     tree.object_assign(
         MyId(1),
         "my key 2".to_string(),

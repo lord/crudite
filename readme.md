@@ -31,6 +31,7 @@ starting with simple opset crdt, no splicing
 - [x] moving objects needs some work; need to check for cycles, need to remove item from previous parent. maybe can combine this fix with the orphaning system.
 - [x] update tests to actually test all those new parent() fns
 - [ ] finish upgrading tests to public Value APIs, add more Value methods, esp. for ergonomic string/list index access
+- [ ] system for constructing a StringRef or ObjectRef or ArrayRef in the first place
 - [ ] need to keep track of parents; you shouldn't need to delete to re-add, this makes it so multiple moves from the same place won't compose correctly.
 
 ## future work
