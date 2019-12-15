@@ -1,4 +1,3 @@
-use im::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::hash::Hash;
 
@@ -31,7 +30,7 @@ pub(super) fn get_parent<Id: Hash + Clone + Eq + Debug>(tree: &tree::Tree<Id>, i
     match tree.get_type(id.clone()) {
         Ok(tree::NodeType::Array) => Ok(Parent::Array(ArrayRef(id))),
         Ok(tree::NodeType::Object) => Ok(Parent::Object(ObjectRef(id))),
-        _ => panic!("parent was of unexpected type"),
+        e => panic!("parent was of unexpected type: {:?}", e),
     }
 }
 
@@ -81,7 +80,8 @@ impl<Id: Hash + Clone + Eq + Debug> StringIndex<Id> {
         match tree.get_type(self.0.clone()) {
             Ok(tree::NodeType::String) => Ok(StringRef(self.0.clone())),
             Ok(tree::NodeType::Character) => Ok(StringRef(tree.get_parent(self.0.clone())?.expect("Stringsegment should have parent"))),
-            _ => Err(tree::TreeError::UnexpectedNodeType),
+            Ok(_) => Err(tree::TreeError::UnexpectedNodeType),
+            Err(e) => Err(e),
         }
     }
 }

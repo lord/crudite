@@ -29,7 +29,7 @@ starting with simple opset crdt, no splicing
   - [x] don't actually need to delete segments until we have garbage collection
 - [x] add array type to json tree
 - [x] moving objects needs some work; need to check for cycles, need to remove item from previous parent. maybe can combine this fix with the orphaning system.
-- [ ] update tests to actually test all those new parent() fns
+- [x] update tests to actually test all those new parent() fns
 - [ ] finish upgrading tests to public Value APIs, add more Value methods, esp. for ergonomic string/list index access
 - [ ] need to keep track of parents; you shouldn't need to delete to re-add, this makes it so multiple moves from the same place won't compose correctly.
 
