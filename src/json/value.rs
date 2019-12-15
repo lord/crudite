@@ -143,7 +143,8 @@ impl<Id: Hash + Clone + Eq + Debug> ArrayIndex<Id> {
                 tree.get_parent(self.0.clone())?
                     .expect("arraysegment should have parent"),
             )),
-            _ => Err(tree::TreeError::UnexpectedNodeType),
+            Ok(_) => Err(tree::TreeError::UnexpectedNodeType),
+            Err(e) => Err(e),
         }
     }
 }
