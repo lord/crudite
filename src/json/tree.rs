@@ -623,15 +623,6 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         }
     }
 
-    pub(super) fn object_get(&self, object: Id, key: &str) -> Result<Value<Id>, TreeError> {
-        let object_node_id = *self.id_to_node.get(&object).ok_or(TreeError::UnknownId)?;
-        let child = match &self.nodes[&object_node_id].data {
-            NodeData::Object { items, id: _ } => items.get(key),
-            _ => return Err(TreeError::UnexpectedNodeType),
-        };
-        Ok(self.child_to_value(child))
-    }
-
     /// Gets the type of `Id`.
     pub(super) fn get_type(&self, id: Id) -> Result<NodeType, TreeError> {
         let node_id = self.id_to_node.get(&id).ok_or(TreeError::UnknownId)?;
