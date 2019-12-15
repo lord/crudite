@@ -3,22 +3,13 @@ use super::value::{self, Value};
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 struct MyId(usize);
 
-fn debug_get_string(tree: &Tree<MyId>, id: MyId) -> Result<String, TreeError> {
-    let r = value::StringRef(id);
-    r.to_string(&tree)
-}
-
-fn debug_get_numbers(tree: &Tree<MyId>, id: MyId) -> Result<Vec<i64>, TreeError> {
-    let r = value::ArrayRef(id);
-    let res = r.to_vec(&tree);
-    res.map(|vals| {
-        vals.iter()
-            .map(|val| match val {
-                Value::Int(i) => *i,
-                _ => panic!("unexpected type in list"),
-            })
-            .collect()
-    })
+fn vals_to_nums<Id>(vals: Vec<Value<Id>>) -> Vec<i64> {
+    vals.iter()
+        .map(|val| match val {
+            Value::Int(i) => *i,
+            _ => panic!("unexpected type in list"),
+        })
+        .collect()
 }
 
 #[test]
@@ -157,16 +148,16 @@ fn invalid_ids_error() {
 fn simple_delete() {
     let mut tree = Tree::new_with_string_root(MyId(0));
     tree.insert_character(MyId(0), MyId(1), 'a').unwrap();
-    assert_eq!(debug_get_string(&tree, MyId(0)), Ok("a".to_string()));
+    assert_eq!(value::StringRef(MyId(0)).to_string(&tree), Ok("a".to_string()));
     tree.insert_character(MyId(1), MyId(2), 'b').unwrap();
-    assert_eq!(debug_get_string(&tree, MyId(0)), Ok("ab".to_string()));
+    assert_eq!(value::StringRef(MyId(0)).to_string(&tree), Ok("ab".to_string()));
     tree.delete_character(MyId(1)).unwrap();
-    assert_eq!(debug_get_string(&tree, MyId(0)), Ok("b".to_string()));
+    assert_eq!(value::StringRef(MyId(0)).to_string(&tree), Ok("b".to_string()));
     // test delete same char; should be noop
     tree.delete_character(MyId(1)).unwrap();
-    assert_eq!(debug_get_string(&tree, MyId(0)), Ok("b".to_string()));
+    assert_eq!(value::StringRef(MyId(0)).to_string(&tree), Ok("b".to_string()));
     tree.delete_character(MyId(2)).unwrap();
-    assert_eq!(debug_get_string(&tree, MyId(0)), Ok("".to_string()));
+    assert_eq!(value::StringRef(MyId(0)).to_string(&tree), Ok("".to_string()));
 }
 
 #[test]
@@ -183,13 +174,13 @@ fn insert_and_delete_characters() {
 
     let mut tree = Tree::new_with_string_root(MyId(0));
     tree.insert_character(MyId(0), MyId(1), 'a').unwrap();
-    assert_eq!(debug_get_string(&tree, MyId(0)), Ok("a".to_string()));
+    assert_eq!(value::StringRef(MyId(0)).to_string(&tree), Ok("a".to_string()));
     tree.insert_character(MyId(1), MyId(2), 'b').unwrap();
-    assert_eq!(debug_get_string(&tree, MyId(0)), Ok("ab".to_string()));
+    assert_eq!(value::StringRef(MyId(0)).to_string(&tree), Ok("ab".to_string()));
     tree.insert_character(MyId(1), MyId(3), 'c').unwrap();
-    assert_eq!(debug_get_string(&tree, MyId(0)), Ok("acb".to_string()));
+    assert_eq!(value::StringRef(MyId(0)).to_string(&tree), Ok("acb".to_string()));
     tree.insert_character(MyId(0), MyId(4), 'd').unwrap();
-    assert_eq!(debug_get_string(&tree, MyId(0)), Ok("dacb".to_string()));
+    assert_eq!(value::StringRef(MyId(0)).to_string(&tree), Ok("dacb".to_string()));
     for i in 5..10000 {
         tree.insert_character(MyId(i - 1), MyId(i), num_to_char(i))
             .unwrap();
@@ -197,7 +188,7 @@ fn insert_and_delete_characters() {
 
     let long_insert = (5..10000).map(|i| num_to_char(i)).collect::<String>();
     assert_eq!(
-        debug_get_string(&tree, MyId(0)),
+        value::StringRef(MyId(0)).to_string(&tree),
         Ok(format!("d{}acb", long_insert))
     );
 
@@ -205,7 +196,7 @@ fn insert_and_delete_characters() {
         tree.delete_character(MyId(i)).unwrap();
     }
 
-    assert_eq!(debug_get_string(&tree, MyId(0)), Ok(format!("dacb")));
+    assert_eq!(value::StringRef(MyId(0)).to_string(&tree), Ok(format!("dacb")));
 }
 
 #[test]
@@ -217,16 +208,16 @@ fn insert_and_delete_list_of_nums() {
     let mut tree = Tree::new_with_array_root(MyId(0));
     tree.insert_list_item(MyId(0), MyId(1), Value::Int(1))
         .unwrap();
-    assert_eq!(debug_get_numbers(&tree, MyId(0)), Ok(vec![1]));
+    assert_eq!(value::ArrayRef(MyId(0)).to_vec(&tree).map(vals_to_nums), Ok(vec![1]));
     tree.insert_list_item(MyId(1), MyId(2), Value::Int(2))
         .unwrap();
-    assert_eq!(debug_get_numbers(&tree, MyId(0)), Ok(vec![1, 2]));
+    assert_eq!(value::ArrayRef(MyId(0)).to_vec(&tree).map(vals_to_nums), Ok(vec![1, 2]));
     tree.insert_list_item(MyId(1), MyId(3), Value::Int(3))
         .unwrap();
-    assert_eq!(debug_get_numbers(&tree, MyId(0)), Ok(vec![1, 3, 2]));
+    assert_eq!(value::ArrayRef(MyId(0)).to_vec(&tree).map(vals_to_nums), Ok(vec![1, 3, 2]));
     tree.insert_list_item(MyId(0), MyId(4), Value::Int(4))
         .unwrap();
-    assert_eq!(debug_get_numbers(&tree, MyId(0)), Ok(vec![4, 1, 3, 2]));
+    assert_eq!(value::ArrayRef(MyId(0)).to_vec(&tree).map(vals_to_nums), Ok(vec![4, 1, 3, 2]));
     for i in 5..10000 {
         tree.insert_list_item(MyId(i - 1), MyId(i), num_to_value(i))
             .unwrap();
@@ -237,13 +228,13 @@ fn insert_and_delete_list_of_nums() {
     long_insert.push(1);
     long_insert.push(3);
     long_insert.push(2);
-    assert_eq!(debug_get_numbers(&tree, MyId(0)), Ok(long_insert));
+    assert_eq!(value::ArrayRef(MyId(0)).to_vec(&tree).map(vals_to_nums), Ok(long_insert));
 
     for i in 5..10000 {
         tree.delete_list_item(MyId(i)).unwrap();
     }
 
-    assert_eq!(debug_get_numbers(&tree, MyId(0)), Ok(vec![4, 1, 3, 2]));
+    assert_eq!(value::ArrayRef(MyId(0)).to_vec(&tree).map(vals_to_nums), Ok(vec![4, 1, 3, 2]));
 }
 
 #[test]
