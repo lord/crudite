@@ -19,22 +19,31 @@ fn object_assignment() {
     // {}
     // ^
     // 0
-    assert_eq!(Ok(value::Parent::None), value::ObjectRef(MyId(0)).parent(&tree));
+    assert_eq!(
+        Ok(value::Parent::None),
+        value::ObjectRef(MyId(0)).parent(&tree)
+    );
 
-    tree.update(&Edit::MapCreate {id: value::ObjectRef(MyId(1))}).unwrap();
-    tree.object_assign(
-        MyId(0),
-        "my key".to_string(),
-        Value::Object(value::ObjectRef(MyId(1))),
-    )
+    tree.update(&Edit::MapCreate {
+        id: value::ObjectRef(MyId(1)),
+    })
+    .unwrap();
+    tree.update(&Edit::MapInsert {
+        parent: value::ObjectRef(MyId(0)),
+        key: "my key".to_string(),
+        item: Value::Object(value::ObjectRef(MyId(1))),
+    })
     .unwrap();
 
-    tree.update(&Edit::TextCreate {id: value::StringRef(MyId(2))}).unwrap();
-    tree.object_assign(
-        MyId(1),
-        "my key 2".to_string(),
-        Value::Object(value::ObjectRef(MyId(2))),
-    )
+    tree.update(&Edit::TextCreate {
+        id: value::StringRef(MyId(2)),
+    })
+    .unwrap();
+    tree.update(&Edit::MapInsert {
+        parent: value::ObjectRef(MyId(1)),
+        key: "my key 2".to_string(),
+        item: Value::Object(value::ObjectRef(MyId(2))),
+    })
     .unwrap();
 
     tree.insert_character(MyId(2), MyId(3), 'a').unwrap();
@@ -73,14 +82,15 @@ fn object_assignment() {
         value::ObjectRef(MyId(0)).get(&tree, "my key 2")
     );
 
-    tree.object_assign(MyId(0), "my key".to_string(), Value::True)
-        .unwrap();
-
-    tree.delete_orphans();
-
-    // {"my key": true}
-    // ^          ^
-    // 0          4
+    tree.update(&Edit::MapInsert {
+        parent: value::ObjectRef(MyId(0)),
+        key: "my key".to_string(),
+        item: Value::True,
+    })
+    .unwrap();
+    tree.delete_orphans(); // {"my key": true}
+                           // ^          ^
+                           // 0          4
     assert_eq!(Ok(NodeType::Object), tree.get_type(MyId(0)));
     assert_eq!(Err(TreeError::UnknownId), tree.get_type(MyId(1)));
     assert_eq!(Err(TreeError::UnknownId), tree.get_type(MyId(2)));
@@ -107,14 +117,15 @@ fn object_assignment() {
         value::ObjectRef(MyId(0)).get(&tree, "my key")
     );
 
-    tree.object_assign(MyId(0), "my key".to_string(), Value::Unset)
-        .unwrap();
-
-    tree.delete_orphans();
-
-    // {}
-    // ^
-    // 0
+    tree.update(&Edit::MapInsert {
+        parent: value::ObjectRef(MyId(0)),
+        key: "my key".to_string(),
+        item: Value::Unset,
+    })
+    .unwrap();
+    tree.delete_orphans(); // {}
+                           // ^
+                           // 0
     assert_eq!(Ok(NodeType::Object), tree.get_type(MyId(0)));
     assert_eq!(Err(TreeError::UnknownId), tree.get_type(MyId(1)));
     assert_eq!(Err(TreeError::UnknownId), tree.get_type(MyId(2)));
@@ -293,28 +304,34 @@ fn insert_and_delete_list_of_nums() {
 #[test]
 fn cant_move_things_with_object_parents() {
     let mut tree = Tree::new_with_object_root(MyId(0));
-    tree.update(&Edit::MapCreate { id: value::ObjectRef(MyId(1)) }).unwrap();
-    tree.object_assign(
-        MyId(0),
-        "my key".to_string(),
-        Value::Object(value::ObjectRef(MyId(1))),
-    )
+    tree.update(&Edit::MapCreate {
+        id: value::ObjectRef(MyId(1)),
+    })
+    .unwrap();
+    tree.update(&Edit::MapInsert {
+        parent: value::ObjectRef(MyId(0)),
+        key: "my key".to_string(),
+        item: Value::Object(value::ObjectRef(MyId(1))),
+    })
     .unwrap();
     // attempt second assignment
     assert_eq!(
         Err(TreeError::NodeAlreadyHadParent),
-        tree.object_assign(
-            MyId(0),
-            "my key 2".to_string(),
-            Value::Object(value::ObjectRef(MyId(1)))
-        )
+        tree.update(&Edit::MapInsert {
+            parent: value::ObjectRef(MyId(0)),
+            key: "my key 2".to_string(),
+            item: Value::Object(value::ObjectRef(MyId(1)))
+        })
     );
 }
 
 #[test]
 fn cant_move_things_with_array_parents() {
     let mut tree = Tree::new_with_array_root(MyId(0));
-    tree.update(&Edit::MapCreate { id: value::ObjectRef(MyId(1)) }).unwrap();
+    tree.update(&Edit::MapCreate {
+        id: value::ObjectRef(MyId(1)),
+    })
+    .unwrap();
     tree.insert_list_item(MyId(0), MyId(2), Value::Object(value::ObjectRef(MyId(1))))
         .unwrap();
     // attempt second insert
@@ -337,20 +354,26 @@ fn object_assignment_prevents_cycles() {
         value::ObjectRef(MyId(0)).parent(&tree)
     );
 
-    tree.update(&Edit::MapCreate { id: value::ObjectRef(MyId(1)) }).unwrap();
-    tree.object_assign(
-        MyId(0),
-        "my key".to_string(),
-        Value::Object(value::ObjectRef(MyId(1))),
-    )
+    tree.update(&Edit::MapCreate {
+        id: value::ObjectRef(MyId(1)),
+    })
+    .unwrap();
+    tree.update(&Edit::MapInsert {
+        parent: value::ObjectRef(MyId(0)),
+        key: "my key".to_string(),
+        item: Value::Object(value::ObjectRef(MyId(1))),
+    })
     .unwrap();
 
-    tree.update(&Edit::MapCreate { id: value::ObjectRef(MyId(2)) }).unwrap();
-    tree.object_assign(
-        MyId(1),
-        "my key 2".to_string(),
-        Value::Object(value::ObjectRef(MyId(2))),
-    )
+    tree.update(&Edit::MapCreate {
+        id: value::ObjectRef(MyId(2)),
+    })
+    .unwrap();
+    tree.update(&Edit::MapInsert {
+        parent: value::ObjectRef(MyId(1)),
+        key: "my key 2".to_string(),
+        item: Value::Object(value::ObjectRef(MyId(2))),
+    })
     .unwrap();
 
     // {"my key": {"my key 2": {}}}
@@ -360,16 +383,19 @@ fn object_assignment_prevents_cycles() {
     // let's attempt an assignment that causes a loop
 
     // first, unassign 1 from 0["my_key"]
-    tree.object_assign(MyId(0), "my key".to_string(), Value::Int(123))
-        .unwrap();
+    tree.update(&Edit::MapInsert {
+        parent: value::ObjectRef(MyId(0)),
+        key: "my key".to_string(),
+        item: Value::Int(123),
+    })
+    .unwrap(); // next, make the now-orphaned 1 a child of 2 assert_eq!(Err(TreeError::EditWouldCauseCycle),
 
-    // next, make the now-orphaned 1 a child of 2
     assert_eq!(
         Err(TreeError::EditWouldCauseCycle),
-        tree.object_assign(
-            MyId(2),
-            "my key 3".to_string(),
-            Value::Object(value::ObjectRef(MyId(1)))
-        )
+        tree.update(&Edit::MapInsert {
+            parent: value::ObjectRef(MyId(2)),
+            key: "my key 3".to_string(),
+            item: Value::Object(value::ObjectRef(MyId(1)))
+        })
     );
 }
