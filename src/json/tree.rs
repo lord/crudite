@@ -593,8 +593,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     }
 
     pub(super) fn id_to_node(&self, id: &Id) -> Result<NodeId, TreeError> {
-        self
-            .id_to_node
+        self.id_to_node
             .get(id)
             .ok_or(TreeError::UnknownId)
             .map(|v| *v)
@@ -717,8 +716,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             None => return Ok(()),
         };
         if let Child::Collection(child) = &child {
-            let append_node = self
-                .id_to_node(&append_id)?;
+            let append_node = self.id_to_node(&append_id)?;
             match self.nodes[&append_node] {
                 Node {
                     data: NodeData::ArraySegment { .. },

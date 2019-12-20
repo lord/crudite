@@ -41,8 +41,7 @@ pub(super) fn get_parent<Id: Hash + Clone + Eq + Debug>(
 pub struct StringRef<Id>(pub Id);
 impl<Id: Hash + Clone + Eq + Debug> StringRef<Id> {
     pub fn to_string(&self, tree: &tree::Tree<Id>) -> Result<String, tree::TreeError> {
-        let string_node_id = tree
-            .id_to_node(&self.0)?;
+        let string_node_id = tree.id_to_node(&self.0)?;
         let node = tree
             .nodes
             .get(&string_node_id)
@@ -102,8 +101,7 @@ impl<Id: Hash + Clone + Eq + Debug> StringIndex<Id> {
 pub struct ArrayRef<Id>(pub Id);
 impl<Id: Hash + Clone + Eq + Debug> ArrayRef<Id> {
     pub fn to_vec(&self, tree: &tree::Tree<Id>) -> Result<Vec<Value<Id>>, tree::TreeError> {
-        let string_node_id = tree
-            .id_to_node(&self.0)?;
+        let string_node_id = tree.id_to_node(&self.0)?;
         let node = tree
             .nodes
             .get(&string_node_id)
@@ -162,8 +160,7 @@ impl<Id: Hash + Clone + Eq + Debug> ObjectRef<Id> {
     }
 
     pub fn get(&self, tree: &tree::Tree<Id>, key: &str) -> Result<Value<Id>, tree::TreeError> {
-        let object_node_id = tree
-            .id_to_node(&self.0)?;
+        let object_node_id = tree.id_to_node(&self.0)?;
         let child = match &tree.nodes[&object_node_id].data {
             tree::NodeData::Object { items, id: _ } => items.get(key),
             _ => return Err(tree::TreeError::UnexpectedNodeType),
