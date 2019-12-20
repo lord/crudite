@@ -67,13 +67,26 @@ impl<Id: Hash + Clone + Eq + Debug> StringRef<Id> {
         Ok(string)
     }
 
-    pub fn start(&self, _tree: &tree::Tree<Id>) -> Result<StringIndex<Id>, tree::TreeError> {
-        // TODO VALIDATE STILL IN TREE HERE
+    pub fn start(&self, tree: &tree::Tree<Id>) -> Result<StringIndex<Id>, tree::TreeError> {
+        // validate still in tree
+        let _ = tree.id_to_node(&self.0)?;
         Ok(StringIndex(self.0.clone()))
     }
 
-    pub fn end(&self, _tree: &tree::Tree<Id>) -> Result<StringIndex<Id>, tree::TreeError> {
-        unimplemented!()
+    pub fn end(&self, tree: &tree::Tree<Id>) -> Result<StringIndex<Id>, tree::TreeError> {
+        let node_id = tree.id_to_node(&self.0)?;
+        let node = tree.nodes.get(&node_id).expect("node_id listed in id_to_node did not exist.");
+        let last_node_id = match &node.data {
+            tree::NodeData::String { end, .. } => *end,
+            _ => return Err(tree::TreeError::UnexpectedNodeType),
+        };
+        let last_node = tree.nodes.get(&last_node_id).unwrap();
+        match &last_node.data {
+            tree::NodeData::StringSegment { ids, .. } => {
+                Ok(StringIndex(ids.last().unwrap().0.clone()))
+            },
+            _ => Err(tree::TreeError::UnexpectedNodeType),
+        }
     }
 
     pub fn parent(&self, tree: &tree::Tree<Id>) -> Result<Parent<Id>, tree::TreeError> {
@@ -93,6 +106,80 @@ impl<Id: Hash + Clone + Eq + Debug> StringIndex<Id> {
             )),
             Ok(_) => Err(tree::TreeError::UnexpectedNodeType),
             Err(e) => Err(e),
+        }
+    }
+
+    /// Returns the index that is `num` characters away from `self`. If reaches start or end of
+    /// string, will stop. Takes `O(n)`; make take longer if there are a lot of deleted characters
+    /// to traverse over.
+    pub fn adjacent(&self, tree: &tree::Tree<Id>, mut num: i64) -> Result<StringIndex<Id>, tree::TreeError> {
+        let node_id = tree.id_to_node(&self.0)?;
+        let mut node = tree.nodes.get(&node_id).expect("node_id listed in id_to_node did not exist.");
+        let mut index_in_node = match &node.data {
+            tree::NodeData::StringSegment { ids, .. } => {
+                let pos = ids.iter().position(|(id, _)| id == &self.0).unwrap();
+                if ids[pos].1.is_none() && num > 0 {
+                    // we're going forward, and this character id isn't real, so increment one so
+                    // that the forward-moving process will first advance to the next real
+                    // character before incrementing
+                    num += 1;
+                }
+                pos
+            },
+            _ => return Err(tree::TreeError::UnexpectedNodeType),
+        };
+
+        while num != 0 {
+            if num > 0 {
+                let (ids, next) = match &node.data {
+                    tree::NodeData::StringSegment { ids, next, .. } => (ids, *next),
+                    _ => return Err(tree::TreeError::UnexpectedNodeType),
+                };
+                if index_in_node + 1 >= ids.len() {
+                    node = tree.nodes.get(&next).unwrap();
+                    index_in_node = match &node.data {
+                        tree::NodeData::String { .. } => {
+                            // hit edge of string; return
+                            return Ok(StringIndex(ids[index_in_node].0.clone()))
+                        },
+                        tree::NodeData::StringSegment { .. } => 0,
+                        _ => panic!("unexpected node type in stringsegment chain")
+                    }
+                } else if ids[index_in_node + 1].1.is_some() {
+                    num -= 1;
+                    index_in_node += 1;
+                } else {
+                    index_in_node += 1;
+                }
+            } else {
+                let (ids, prev) = match &node.data {
+                    tree::NodeData::StringSegment { ids, prev, .. } => (ids, *prev),
+                    _ => return Err(tree::TreeError::UnexpectedNodeType),
+                };
+                if index_in_node == 0 {
+                    node = tree.nodes.get(&prev).unwrap();
+                    index_in_node = match &node.data {
+                        tree::NodeData::String { .. } => {
+                            // hit edge of string; return
+                            return Ok(StringIndex(ids[index_in_node].0.clone()))
+                        },
+                        tree::NodeData::StringSegment { ids, .. } => ids.len() - 1,
+                        _ => panic!("unexpected node type in stringsegment chain")
+                    }
+                } else if ids[index_in_node - 1].1.is_some() {
+                    num += 1;
+                    index_in_node -= 1;
+                } else {
+                    index_in_node -= 1;
+                }
+            }
+        }
+
+        match &node.data {
+            tree::NodeData::StringSegment { ids, .. } => {
+                Ok(StringIndex(ids[index_in_node].0.clone()))
+            },
+            _ => Err(tree::TreeError::UnexpectedNodeType),
         }
     }
 }
