@@ -42,9 +42,7 @@ pub struct StringRef<Id>(pub Id);
 impl<Id: Hash + Clone + Eq + Debug> StringRef<Id> {
     pub fn to_string(&self, tree: &tree::Tree<Id>) -> Result<String, tree::TreeError> {
         let string_node_id = tree
-            .id_to_node
-            .get(&self.0)
-            .ok_or(tree::TreeError::UnknownId)?;
+            .id_to_node(&self.0)?;
         let node = tree
             .nodes
             .get(&string_node_id)
@@ -54,7 +52,7 @@ impl<Id: Hash + Clone + Eq + Debug> StringRef<Id> {
             _ => return Err(tree::TreeError::UnexpectedNodeType),
         };
         let mut string = String::new();
-        while next != *string_node_id {
+        while next != string_node_id {
             let node = tree
                 .nodes
                 .get(&next)
@@ -68,6 +66,15 @@ impl<Id: Hash + Clone + Eq + Debug> StringRef<Id> {
             };
         }
         Ok(string)
+    }
+
+    pub fn start(&self, _tree: &tree::Tree<Id>) -> Result<StringIndex<Id>, tree::TreeError> {
+        // TODO VALIDATE STILL IN TREE HERE
+        Ok(StringIndex(self.0.clone()))
+    }
+
+    pub fn end(&self, _tree: &tree::Tree<Id>) -> Result<StringIndex<Id>, tree::TreeError> {
+        unimplemented!()
     }
 
     pub fn parent(&self, tree: &tree::Tree<Id>) -> Result<Parent<Id>, tree::TreeError> {
@@ -96,9 +103,7 @@ pub struct ArrayRef<Id>(pub Id);
 impl<Id: Hash + Clone + Eq + Debug> ArrayRef<Id> {
     pub fn to_vec(&self, tree: &tree::Tree<Id>) -> Result<Vec<Value<Id>>, tree::TreeError> {
         let string_node_id = tree
-            .id_to_node
-            .get(&self.0)
-            .ok_or(tree::TreeError::UnknownId)?;
+            .id_to_node(&self.0)?;
         let node = tree
             .nodes
             .get(&string_node_id)
@@ -108,7 +113,7 @@ impl<Id: Hash + Clone + Eq + Debug> ArrayRef<Id> {
             _ => return Err(tree::TreeError::UnexpectedNodeType),
         };
         let mut children = Vec::new();
-        while next != *string_node_id {
+        while next != string_node_id {
             let node = tree
                 .nodes
                 .get(&next)
@@ -158,9 +163,7 @@ impl<Id: Hash + Clone + Eq + Debug> ObjectRef<Id> {
 
     pub fn get(&self, tree: &tree::Tree<Id>, key: &str) -> Result<Value<Id>, tree::TreeError> {
         let object_node_id = tree
-            .id_to_node
-            .get(&self.0)
-            .ok_or(tree::TreeError::UnknownId)?;
+            .id_to_node(&self.0)?;
         let child = match &tree.nodes[&object_node_id].data {
             tree::NodeData::Object { items, id: _ } => items.get(key),
             _ => return Err(tree::TreeError::UnexpectedNodeType),

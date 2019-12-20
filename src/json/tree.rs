@@ -560,7 +560,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             | Value::Array(value::ArrayRef(id))
             | Value::String(value::StringRef(id)) => {
                 // TODO should we validate types here?
-                let node_id = *self.id_to_node.get(&id).ok_or(TreeError::UnknownId)?;
+                let node_id = self.id_to_node(&id)?;
                 Ok(Some(Child::Collection(node_id)))
             }
             Value::True => Ok(Some(Child::True)),
@@ -592,6 +592,14 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         }
     }
 
+    pub(super) fn id_to_node(&self, id: &Id) -> Result<NodeId, TreeError> {
+        self
+            .id_to_node
+            .get(id)
+            .ok_or(TreeError::UnknownId)
+            .map(|v| *v)
+    }
+
     // TODO right now this is last-write-wins, could modify the object NodeData pretty lightly and
     // get multi value registers which would be sick
     /// Moves `value` to `object[key]`. If `value` is `None`, the key is deleted. If there was a
@@ -603,7 +611,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
         value: Value<Id>,
     ) -> Result<Value<Id>, TreeError> {
         let child_opt = self.value_to_child(&value)?;
-        let object_node_id = *self.id_to_node.get(&object).ok_or(TreeError::UnknownId)?;
+        let object_node_id = self.id_to_node(&object)?;
         if let Some(Child::Collection(child)) = &child_opt {
             self.reparent_item(*child, object_node_id)?;
         }
@@ -625,7 +633,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
 
     /// Gets the type of `Id`.
     pub(super) fn get_type(&self, id: Id) -> Result<NodeType, TreeError> {
-        let node_id = self.id_to_node.get(&id).ok_or(TreeError::UnknownId)?;
+        let node_id = self.id_to_node(&id)?;
         let node = self
             .nodes
             .get(&node_id)
@@ -640,7 +648,7 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
     }
 
     pub(super) fn get_parent(&self, id: Id) -> Result<Option<Id>, TreeError> {
-        let node_id = self.id_to_node.get(&id).ok_or(TreeError::UnknownId)?;
+        let node_id = self.id_to_node(&id)?;
         let node = self
             .nodes
             .get(&node_id)
@@ -709,10 +717,8 @@ impl<Id: Hash + Clone + Eq + Debug> Tree<Id> {
             None => return Ok(()),
         };
         if let Child::Collection(child) = &child {
-            let append_node = *self
-                .id_to_node
-                .get(&append_id)
-                .ok_or(TreeError::UnknownId)?;
+            let append_node = self
+                .id_to_node(&append_id)?;
             match self.nodes[&append_node] {
                 Node {
                     data: NodeData::ArraySegment { .. },

@@ -118,10 +118,7 @@ fn lookup_id_index<Id: Hash + Clone + Eq + Debug>(
     tree: &Tree<Id>,
     lookup_id: &Id,
 ) -> Result<(NodeId, usize), TreeError> {
-    let node_id = tree
-        .id_to_node
-        .get(&lookup_id)
-        .ok_or(TreeError::UnknownId)?;
+    let node_id = tree.id_to_node(&lookup_id)?;
     let node = tree
         .nodes
         .get(&node_id)
@@ -131,7 +128,7 @@ fn lookup_id_index<Id: Hash + Clone + Eq + Debug>(
 
     for (i, (id, _)) in ids.iter().enumerate() {
         if id == lookup_id {
-            return Ok((*node_id, i));
+            return Ok((node_id, i));
             // don't check for string index until next iteration of loop; we want the *next*
             // char index to be the insertion point, not this one
         }
@@ -145,10 +142,7 @@ fn lookup_insertion_point<Id: Hash + Clone + Eq + Debug>(
     tree: &Tree<Id>,
     lookup_id: &Id,
 ) -> Result<(NodeId, usize, usize), TreeError> {
-    let node_id = tree
-        .id_to_node
-        .get(&lookup_id)
-        .ok_or(TreeError::UnknownId)?;
+    let node_id = tree.id_to_node(&lookup_id)?;
     let node = tree
         .nodes
         .get(&node_id)
@@ -163,7 +157,7 @@ fn lookup_insertion_point<Id: Hash + Clone + Eq + Debug>(
     for (i, (id, string_index_opt)) in ids.iter().enumerate() {
         if let Some(id_list_index) = id_list_index_opt {
             if let Some(string_index) = string_index_opt {
-                return Ok((*node_id, *string_index, id_list_index));
+                return Ok((node_id, *string_index, id_list_index));
             }
         }
         if id == lookup_id {
@@ -173,7 +167,7 @@ fn lookup_insertion_point<Id: Hash + Clone + Eq + Debug>(
         }
     }
     if let Some(id_list_index) = id_list_index_opt {
-        return Ok((*node_id, node.segment_contents_len()?, id_list_index));
+        return Ok((node_id, node.segment_contents_len()?, id_list_index));
     }
     panic!("id not found in segment id list");
 }
