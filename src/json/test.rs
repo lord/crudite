@@ -399,3 +399,61 @@ fn object_assignment_prevents_cycles() {
         })
     );
 }
+
+#[test]
+fn adjacent_string_index() {
+    let mut tree = Tree::new_with_string_root(MyId(0));
+    for i in 0..5000 {
+        tree.update(&Edit::TextInsert {
+            index: value::StringIndex(MyId(i)),
+            id: value::StringIndex(MyId(i+10_000)),
+            character: 'b',
+        }).unwrap();
+        tree.update(&Edit::TextDelete {
+            id: value::StringIndex(MyId(i+10_000)),
+        }).unwrap();
+        tree.update(&Edit::TextInsert {
+            index: value::StringIndex(MyId(i+10_000)),
+            id: value::StringIndex(MyId(i+1)),
+            character: 'a',
+        }).unwrap();
+    }
+
+
+    for i in 0..5001 {
+        let next_id = value::StringIndex(MyId(i)).adjacent(&tree, 1).unwrap();
+        if i == 5000 {
+            assert_eq!(next_id, value::StringIndex(MyId(5000)));
+        } else {
+            assert_eq!(next_id, value::StringIndex(MyId(i+1)));
+        }
+    }
+
+    for i in 0..5001 {
+        let prev_id = value::StringIndex(MyId(i)).adjacent(&tree, -1).unwrap();
+        if i == 0 {
+            assert_eq!(prev_id, value::StringIndex(MyId(0)));
+        } else {
+            assert_eq!(prev_id, value::StringIndex(MyId(i-1)));
+        }
+    }
+
+    for i in 0..5001 {
+        let next_id = value::StringIndex(MyId(i)).adjacent(&tree, 2).unwrap();
+        if i == 5000 || i == 4999 {
+            assert_eq!(next_id, value::StringIndex(MyId(5000)));
+        } else {
+            assert_eq!(next_id, value::StringIndex(MyId(i+2)));
+        }
+    }
+
+    for i in 0..5001 {
+        let prev_id = value::StringIndex(MyId(i)).adjacent(&tree, -2).unwrap();
+        if i == 0 || i == 1 {
+            assert_eq!(prev_id, value::StringIndex(MyId(0)));
+        } else {
+            assert_eq!(prev_id, value::StringIndex(MyId(i-2)));
+        }
+    }
+
+}
