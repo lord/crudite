@@ -406,26 +406,28 @@ fn adjacent_string_index() {
     for i in 0..5000 {
         tree.update(&Edit::TextInsert {
             index: value::StringIndex(MyId(i)),
-            id: value::StringIndex(MyId(i+10_000)),
+            id: value::StringIndex(MyId(i + 10_000)),
             character: 'b',
-        }).unwrap();
+        })
+        .unwrap();
         tree.update(&Edit::TextDelete {
-            id: value::StringIndex(MyId(i+10_000)),
-        }).unwrap();
+            id: value::StringIndex(MyId(i + 10_000)),
+        })
+        .unwrap();
         tree.update(&Edit::TextInsert {
-            index: value::StringIndex(MyId(i+10_000)),
-            id: value::StringIndex(MyId(i+1)),
+            index: value::StringIndex(MyId(i + 10_000)),
+            id: value::StringIndex(MyId(i + 1)),
             character: 'a',
-        }).unwrap();
+        })
+        .unwrap();
     }
-
 
     for i in 0..5001 {
         let next_id = value::StringIndex(MyId(i)).adjacent(&tree, 1).unwrap();
         if i == 5000 {
             assert_eq!(next_id, value::StringIndex(MyId(5000)));
         } else {
-            assert_eq!(next_id, value::StringIndex(MyId(i+1)));
+            assert_eq!(next_id, value::StringIndex(MyId(i + 1)));
         }
     }
 
@@ -434,7 +436,7 @@ fn adjacent_string_index() {
         if i == 0 {
             assert_eq!(prev_id, value::StringIndex(MyId(0)));
         } else {
-            assert_eq!(prev_id, value::StringIndex(MyId(i-1)));
+            assert_eq!(prev_id, value::StringIndex(MyId(i - 1)));
         }
     }
 
@@ -443,7 +445,7 @@ fn adjacent_string_index() {
         if i == 5000 || i == 4999 {
             assert_eq!(next_id, value::StringIndex(MyId(5000)));
         } else {
-            assert_eq!(next_id, value::StringIndex(MyId(i+2)));
+            assert_eq!(next_id, value::StringIndex(MyId(i + 2)));
         }
     }
 
@@ -452,8 +454,7 @@ fn adjacent_string_index() {
         if i == 0 || i == 1 {
             assert_eq!(prev_id, value::StringIndex(MyId(0)));
         } else {
-            assert_eq!(prev_id, value::StringIndex(MyId(i-2)));
+            assert_eq!(prev_id, value::StringIndex(MyId(i - 2)));
         }
     }
-
 }

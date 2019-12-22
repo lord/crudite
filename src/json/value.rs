@@ -75,7 +75,10 @@ impl<Id: Hash + Clone + Eq + Debug> StringRef<Id> {
 
     pub fn end(&self, tree: &tree::Tree<Id>) -> Result<StringIndex<Id>, tree::TreeError> {
         let node_id = tree.id_to_node(&self.0)?;
-        let node = tree.nodes.get(&node_id).expect("node_id listed in id_to_node did not exist.");
+        let node = tree
+            .nodes
+            .get(&node_id)
+            .expect("node_id listed in id_to_node did not exist.");
         let last_node_id = match &node.data {
             tree::NodeData::String { end, .. } => *end,
             _ => return Err(tree::TreeError::UnexpectedNodeType),
@@ -84,7 +87,7 @@ impl<Id: Hash + Clone + Eq + Debug> StringRef<Id> {
         match &last_node.data {
             tree::NodeData::StringSegment { ids, .. } => {
                 Ok(StringIndex(ids.last().unwrap().0.clone()))
-            },
+            }
             _ => Err(tree::TreeError::UnexpectedNodeType),
         }
     }
@@ -109,17 +112,22 @@ impl<Id: Hash + Clone + Eq + Debug> StringIndex<Id> {
         }
     }
 
-    fn adjacent_next(&self, tree: &tree::Tree<Id>, backwards: bool) -> Result<StringIndex<Id>, tree::TreeError> {
+    fn adjacent_next(
+        &self,
+        tree: &tree::Tree<Id>,
+        backwards: bool,
+    ) -> Result<StringIndex<Id>, tree::TreeError> {
         let node_id = tree.id_to_node(&self.0)?;
-        let mut this_node = tree.nodes.get(&node_id).expect("node_id listed in id_to_node did not exist.");
+        let mut this_node = tree
+            .nodes
+            .get(&node_id)
+            .expect("node_id listed in id_to_node did not exist.");
         let mut this_index = match &this_node.data {
             tree::NodeData::StringSegment { ids, .. } => {
                 let pos = ids.iter().position(|(id, _)| id == &self.0).unwrap();
                 pos
-            },
-            tree::NodeData::String { start, .. } => {
-                0
             }
+            tree::NodeData::String { start, .. } => 0,
             _ => return Err(tree::TreeError::UnexpectedNodeType),
         };
 
@@ -128,13 +136,22 @@ impl<Id: Hash + Clone + Eq + Debug> StringIndex<Id> {
                 tree::NodeData::String { start, .. } => {
                     if backwards {
                         // started at start of string and going backwards; return self
-                        return Ok(self.clone())
+                        return Ok(self.clone());
                     }
                     (tree.nodes.get(&start).unwrap(), None)
-                },
-                tree::NodeData::StringSegment { ids, next, prev, .. } => {
-                    if (backwards && this_index > 0) || (!backwards && this_index+1 < ids.len()) {
-                        (this_node, Some(if backwards {this_index-1} else {this_index+1}))
+                }
+                tree::NodeData::StringSegment {
+                    ids, next, prev, ..
+                } => {
+                    if (backwards && this_index > 0) || (!backwards && this_index + 1 < ids.len()) {
+                        (
+                            this_node,
+                            Some(if backwards {
+                                this_index - 1
+                            } else {
+                                this_index + 1
+                            }),
+                        )
                     } else {
                         if backwards {
                             (tree.nodes.get(&prev).unwrap(), None)
@@ -142,7 +159,7 @@ impl<Id: Hash + Clone + Eq + Debug> StringIndex<Id> {
                             (tree.nodes.get(&next).unwrap(), None)
                         }
                     }
-                },
+                }
                 _ => return Err(tree::TreeError::UnexpectedNodeType),
             };
 
@@ -153,21 +170,25 @@ impl<Id: Hash + Clone + Eq + Debug> StringIndex<Id> {
                 (tree::NodeData::StringSegment { ids, .. }, tree::NodeData::String { id, .. }) => {
                     // hit edge of string; return
                     if backwards {
-                        return Ok(StringIndex(id.clone()))
+                        return Ok(StringIndex(id.clone()));
                     } else {
-                        return Ok(StringIndex(ids[this_index].0.clone()))
+                        return Ok(StringIndex(ids[this_index].0.clone()));
                     }
                 }
                 (_, tree::NodeData::StringSegment { ids, .. }) => {
                     this_node = next_node;
-                    this_index = next_index.unwrap_or(if backwards && ids.len() > 0 {ids.len()-1} else {0});
+                    this_index = next_index.unwrap_or(if backwards && ids.len() > 0 {
+                        ids.len() - 1
+                    } else {
+                        0
+                    });
                     if ids.len() > 0 {
                         if ids[this_index].1.is_some() {
-                            return Ok(StringIndex(ids[this_index].0.clone()))
+                            return Ok(StringIndex(ids[this_index].0.clone()));
                         }
                     }
                 }
-                _ => panic!("invalid node types")
+                _ => panic!("invalid node types"),
             }
         }
     }
@@ -182,10 +203,8 @@ impl<Id: Hash + Clone + Eq + Debug> StringIndex<Id> {
             tree::NodeData::StringSegment { ids, .. } => {
                 let pos = ids.iter().position(|(id, _)| id == &self.0).unwrap();
                 ids[pos].1.is_some()
-            },
-            tree::NodeData::String { start, .. } => {
-                true
             }
+            tree::NodeData::String { start, .. } => true,
             _ => false,
         }
     }
@@ -193,7 +212,11 @@ impl<Id: Hash + Clone + Eq + Debug> StringIndex<Id> {
     /// Returns the index that is `num` characters away from `self`. If reaches start or end of
     /// string, will stop. Takes `O(n)`; make take longer if there are a lot of deleted characters
     /// to traverse over.
-    pub fn adjacent(&self, tree: &tree::Tree<Id>, mut num: i64) -> Result<StringIndex<Id>, tree::TreeError> {
+    pub fn adjacent(
+        &self,
+        tree: &tree::Tree<Id>,
+        mut num: i64,
+    ) -> Result<StringIndex<Id>, tree::TreeError> {
         {
             if num > 0 && !self.still_exists(tree) {
                 // character doesn't exist and we're moving forward; so add one to number so that
